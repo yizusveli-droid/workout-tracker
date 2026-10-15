@@ -30,7 +30,6 @@ import {
   Activity,
   ShieldCheck,
   LogOut,
-  UserCheck,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
@@ -298,6 +297,24 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
       'https://fitnessprogramer.com/wp-content/uploads/2021/02/Seated-Cable-Row.gif',
   },
   {
+    id: 'e9',
+    name: 'Pull-over en polea alta con cuerda',
+    target_muscle: 'Espalda (Aislamiento Dorsal Ancho)',
+    secondary_muscle: 'Redondo Mayor, Cabeza larga tríceps',
+    equipment: 'Polea',
+    anatomical_image_url:
+      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Lat-Pulldown.gif',
+  },
+  {
+    id: 'e10',
+    name: 'Peso muerto convencional con barra',
+    target_muscle: 'Cadena Posterior y Espalda',
+    secondary_muscle: 'Glúteos, Isquiosurales, Trapecio',
+    equipment: 'Barra',
+    anatomical_image_url:
+      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Deadlift.gif',
+  },
+  {
     id: 'p1',
     name: 'Press de banca plano con barra',
     target_muscle: 'Pecho (Pectoral Mayor Esternal)',
@@ -316,6 +333,51 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
       'https://fitnessprogramer.com/wp-content/uploads/2021/02/Incline-Dumbbell-Press.gif',
   },
   {
+    id: 'p3',
+    name: 'Press de banca plano con mancuernas',
+    target_muscle: 'Pecho (Pectoral Mayor)',
+    secondary_muscle: 'Tríceps, Deltoides Anterior',
+    equipment: 'Mancuerna',
+    anatomical_image_url:
+      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Press.gif',
+  },
+  {
+    id: 'p4',
+    name: 'Press inclinado con barra',
+    target_muscle: 'Pecho (Pectoral Superior)',
+    secondary_muscle: 'Deltoides Anterior, Tríceps',
+    equipment: 'Barra',
+    anatomical_image_url:
+      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Incline-Dumbbell-Press.gif',
+  },
+  {
+    id: 'p5',
+    name: 'Aperturas en máquina (Pec Deck / Contractora)',
+    target_muscle: 'Pecho (Aislamiento Pectoral)',
+    secondary_muscle: 'Deltoides Anterior',
+    equipment: 'Máquina',
+    anatomical_image_url:
+      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Pec-Deck-Fly.gif',
+  },
+  {
+    id: 'p6',
+    name: 'Cruces en polea alta a baja',
+    target_muscle: 'Pecho (Fibras Costales e Inferiores)',
+    secondary_muscle: 'Deltoides Anterior',
+    equipment: 'Polea',
+    anatomical_image_url:
+      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Cable-Crossover.gif',
+  },
+  {
+    id: 'p7',
+    name: 'Fondos en paralelas (Enfoque Pectoral)',
+    target_muscle: 'Pecho (Pectoral Inferior)',
+    secondary_muscle: 'Tríceps, Deltoides Anterior',
+    equipment: 'Corporal / Lastre',
+    anatomical_image_url:
+      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Chest-Dips.gif',
+  },
+  {
     id: 'h1',
     name: 'Elevaciones laterales sentado con mancuernas',
     target_muscle: 'Hombros (Deltoides Lateral)',
@@ -323,6 +385,51 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     equipment: 'Mancuerna',
     anatomical_image_url:
       'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Lateral-Raise.gif',
+  },
+  {
+    id: 'h2',
+    name: 'Elevaciones laterales de pie con mancuernas',
+    target_muscle: 'Hombros (Deltoides Lateral)',
+    secondary_muscle: 'Trapecio',
+    equipment: 'Mancuerna',
+    anatomical_image_url:
+      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Lateral-Raise.gif',
+  },
+  {
+    id: 'h3',
+    name: 'Elevaciones laterales en polea baja',
+    target_muscle: 'Hombros (Deltoides Lateral Constante)',
+    secondary_muscle: 'Supraespinoso',
+    equipment: 'Polea',
+    anatomical_image_url:
+      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Lateral-Raise.gif',
+  },
+  {
+    id: 'h4',
+    name: 'Press militar de pie con barra (OHP)',
+    target_muscle: 'Hombros (Deltoides Anterior y Medio)',
+    secondary_muscle: 'Tríceps, Core, Trapecio',
+    equipment: 'Barra',
+    anatomical_image_url:
+      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Military-Press.gif',
+  },
+  {
+    id: 'h5',
+    name: 'Press de hombros sentado con mancuernas',
+    target_muscle: 'Hombros (Deltoides Anterior)',
+    secondary_muscle: 'Tríceps, Deltoides Lateral',
+    equipment: 'Mancuerna',
+    anatomical_image_url:
+      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Shoulder-Press.gif',
+  },
+  {
+    id: 'h6',
+    name: 'Face Pull en polea alta con cuerda',
+    target_muscle: 'Hombros (Deltoides Posterior y Manguito)',
+    secondary_muscle: 'Trapecio Medio, Romboides',
+    equipment: 'Polea',
+    anatomical_image_url:
+      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Face-Pull.gif',
   },
   {
     id: 'b1',
@@ -334,6 +441,33 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
       'https://fitnessprogramer.com/wp-content/uploads/2021/02/Z-Bar-Preacher-Curl.gif',
   },
   {
+    id: 'b2',
+    name: 'Curl de bíceps de pie con barra Z / recta',
+    target_muscle: 'Brazos (Bíceps Braquial)',
+    secondary_muscle: 'Braquial Anterior, Antebrazo',
+    equipment: 'Barra Z',
+    anatomical_image_url:
+      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Curl.gif',
+  },
+  {
+    id: 'b3',
+    name: 'Curl inclinado con mancuernas (60°)',
+    target_muscle: 'Brazos (Bíceps Cabeza Larga)',
+    secondary_muscle: 'Braquial',
+    equipment: 'Mancuerna',
+    anatomical_image_url:
+      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Curl.gif',
+  },
+  {
+    id: 'b4',
+    name: 'Curl martillo con mancuernas',
+    target_muscle: 'Brazos (Braquial y Braquiorradial)',
+    secondary_muscle: 'Bíceps Braquial',
+    equipment: 'Mancuerna',
+    anatomical_image_url:
+      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Hammer-Curl.gif',
+  },
+  {
     id: 't1',
     name: 'Extensión de tríceps tras nuca en polea (Overhead)',
     target_muscle: 'Brazos (Tríceps Cabeza Larga)',
@@ -341,6 +475,24 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     equipment: 'Polea',
     anatomical_image_url:
       'https://fitnessprogramer.com/wp-content/uploads/2021/02/Pushdown.gif',
+  },
+  {
+    id: 't2',
+    name: 'Extensión de tríceps en polea alta con cuerda',
+    target_muscle: 'Brazos (Tríceps Cabeza Lateral y Medial)',
+    secondary_muscle: 'Ancóneo',
+    equipment: 'Polea',
+    anatomical_image_url:
+      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Pushdown.gif',
+  },
+  {
+    id: 't3',
+    name: 'Press francés con barra Z tumbado',
+    target_muscle: 'Brazos (Tríceps Completo)',
+    secondary_muscle: 'Antebrazo',
+    equipment: 'Barra Z',
+    anatomical_image_url:
+      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Chest-Dips.gif',
   },
   {
     id: 'c1',
@@ -352,6 +504,42 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
       'https://fitnessprogramer.com/wp-content/uploads/2021/02/BARBELL-SQUAT.gif',
   },
   {
+    id: 'c2',
+    name: 'Prensa de piernas inclinada 45°',
+    target_muscle: 'Cuádriceps',
+    secondary_muscle: 'Glúteos, Isquiosurales',
+    equipment: 'Máquina',
+    anatomical_image_url:
+      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Leg-Press.gif',
+  },
+  {
+    id: 'c3',
+    name: 'Sentadilla Hack en máquina (Hack Squat)',
+    target_muscle: 'Cuádriceps (Vasto Externo y Interno)',
+    secondary_muscle: 'Glúteos',
+    equipment: 'Máquina',
+    anatomical_image_url:
+      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Sled-Hack-Squat.gif',
+  },
+  {
+    id: 'c4',
+    name: 'Extensión de cuádriceps en máquina (Sillón)',
+    target_muscle: 'Cuádriceps (Recto Femoral y Vastos)',
+    secondary_muscle: 'Articulación de rodilla',
+    equipment: 'Máquina',
+    anatomical_image_url:
+      'https://fitnessprogramer.com/wp-content/uploads/2021/02/LEG-EXTENSION.gif',
+  },
+  {
+    id: 'c5',
+    name: 'Sentadilla búlgara con mancuernas',
+    target_muscle: 'Cuádriceps y Glúteo Mayor',
+    secondary_muscle: 'Aductores, Isquiosurales',
+    equipment: 'Mancuerna',
+    anatomical_image_url:
+      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Bulgarian-Split-Squat.gif',
+  },
+  {
     id: 'i1',
     name: 'Peso muerto rumano con barra (RDL)',
     target_muscle: 'Isquiosurales (Bíceps Femoral y Semitendinoso)',
@@ -359,6 +547,51 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     equipment: 'Barra',
     anatomical_image_url:
       'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Romanian-Deadlift.gif',
+  },
+  {
+    id: 'i2',
+    name: 'Curl femoral tumbado en máquina',
+    target_muscle: 'Isquiosurales',
+    secondary_muscle: 'Gastrocnemio (Gemelos)',
+    equipment: 'Máquina',
+    anatomical_image_url:
+      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Lying-Leg-Curl.gif',
+  },
+  {
+    id: 'i3',
+    name: 'Curl femoral sentado en máquina',
+    target_muscle: 'Isquiosurales (Máximo estiramiento)',
+    secondary_muscle: 'Gemelos',
+    equipment: 'Máquina',
+    anatomical_image_url:
+      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Seated-Leg-Curl.gif',
+  },
+  {
+    id: 'g1',
+    name: 'Hip Thrust con barra olímpica',
+    target_muscle: 'Glúteos (Glúteo Mayor)',
+    secondary_muscle: 'Isquiosurales, Core',
+    equipment: 'Barra',
+    anatomical_image_url:
+      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Hip-Thrust.gif',
+  },
+  {
+    id: 'g2',
+    name: 'Abducción de cadera sentado en máquina',
+    target_muscle: 'Glúteos (Glúteo Medio y Menor)',
+    secondary_muscle: 'Tensor de la Fascia Lata',
+    equipment: 'Máquina',
+    anatomical_image_url:
+      'https://fitnessprogramer.com/wp-content/uploads/2021/02/HiP-ABDUCTION-MACHINE.gif',
+  },
+  {
+    id: 'cal1',
+    name: 'Elevación de talones de pie en máquina',
+    target_muscle: 'Gemelos (Gastrocnemio)',
+    secondary_muscle: 'Sóleo',
+    equipment: 'Máquina',
+    anatomical_image_url:
+      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Standing-Calf-Raise.gif',
   },
 ]
 
@@ -400,6 +633,15 @@ const ROUTINE_TEMPLATES: RoutineTemplate[] = [
         note: 'Traccionar con codos a 45°',
       },
       {
+        exerciseId: 'e4',
+        setsCount: 2,
+        defaultWeight: 35,
+        defaultReps: 10,
+        defaultRir: 1,
+        previousBest: '35 kg × 10',
+        note: 'Enfoque en dorsal iliaco unilateral',
+      },
+      {
         exerciseId: 'h1',
         setsCount: 3,
         defaultWeight: 12,
@@ -435,7 +677,7 @@ const ROUTINE_TEMPLATES: RoutineTemplate[] = [
     title: 'Pierna A (Cuádriceps e Isquios)',
     subtitle: 'Patrón dominante de rodilla + bisagra de cadera en estiramiento',
     estimatedDuration: '60 - 70 min',
-    focusMuscles: ['Cuádriceps', 'Isquiosurales', 'Glúteos'],
+    focusMuscles: ['Cuádriceps', 'Isquiosurales', 'Glúteos', 'Gemelos'],
     items: [
       {
         exerciseId: 'c1',
@@ -455,6 +697,325 @@ const ROUTINE_TEMPLATES: RoutineTemplate[] = [
         previousBest: '90 kg × 8',
         note: 'Cadera atrás, barra pegada a tibias',
       },
+      {
+        exerciseId: 'c2',
+        setsCount: 3,
+        defaultWeight: 180,
+        defaultReps: 10,
+        defaultRir: 1,
+        previousBest: '180 kg × 10',
+        note: 'Pies en zona media-baja de la plataforma',
+      },
+      {
+        exerciseId: 'i3',
+        setsCount: 3,
+        defaultWeight: 55,
+        defaultReps: 12,
+        defaultRir: 1,
+        previousBest: '55 kg × 12',
+        note: 'Pausa 1s en contracción máxima',
+      },
+      {
+        exerciseId: 'c4',
+        setsCount: 2,
+        defaultWeight: 60,
+        defaultReps: 12,
+        defaultRir: 1,
+        previousBest: '60 kg × 12',
+        note: 'Sujeción firme en las asas del sillón',
+      },
+      {
+        exerciseId: 'cal1',
+        setsCount: 3,
+        defaultWeight: 70,
+        defaultReps: 15,
+        defaultRir: 1,
+        previousBest: '70 kg × 15',
+        note: 'Pausa de 2s en estiramiento abajo',
+      },
+    ],
+  },
+  {
+    id: 'tp-torso-b',
+    splitCategory: 'Torso / Pierna',
+    dayBadge: 'Día 3 • Torso B',
+    title: 'Torso B (Hipertrofia y Densidad)',
+    subtitle: 'Haz clavicular, amplitud dorsal, deltoides posterior y brazos',
+    estimatedDuration: '60 min',
+    focusMuscles: ['Pecho', 'Espalda', 'Hombros', 'Brazos'],
+    items: [
+      {
+        exerciseId: 'p2',
+        setsCount: 3,
+        defaultWeight: 30,
+        defaultReps: 10,
+        defaultRir: 1,
+        previousBest: '30 kg × 10',
+        note: 'Banco a 30° para haz clavicular',
+      },
+      {
+        exerciseId: 'e5',
+        setsCount: 3,
+        defaultWeight: 65,
+        defaultReps: 10,
+        defaultRir: 1,
+        previousBest: '65 kg × 10',
+        note: 'Llevar barra a clavícula sin balanceo',
+      },
+      {
+        exerciseId: 'e8',
+        setsCount: 3,
+        defaultWeight: 60,
+        defaultReps: 10,
+        defaultRir: 1,
+        previousBest: '60 kg × 10',
+        note: 'Apretar escápulas 1s al final',
+      },
+      {
+        exerciseId: 'p5',
+        setsCount: 2,
+        defaultWeight: 55,
+        defaultReps: 12,
+        defaultRir: 1,
+        previousBest: '55 kg × 12',
+        note: 'Codos ligeramente flexionados',
+      },
+      {
+        exerciseId: 'h6',
+        setsCount: 3,
+        defaultWeight: 30,
+        defaultReps: 15,
+        defaultRir: 1,
+        previousBest: '30 kg × 15',
+        note: 'Rotación externa hacia la frente',
+      },
+      {
+        exerciseId: 'b4',
+        setsCount: 2,
+        defaultWeight: 16,
+        defaultReps: 10,
+        defaultRir: 1,
+        previousBest: '16 kg × 10',
+        note: 'Enfoque en braquial y antebrazo',
+      },
+      {
+        exerciseId: 't2',
+        setsCount: 2,
+        defaultWeight: 30,
+        defaultReps: 12,
+        defaultRir: 1,
+        previousBest: '30 kg × 12',
+        note: 'Abrir la cuerda al final de la extensión',
+      },
+    ],
+  },
+  {
+    id: 'tp-pierna-b',
+    splitCategory: 'Torso / Pierna',
+    dayBadge: 'Día 4 • Pierna B',
+    title: 'Pierna B (Glúteos, Isquios y Unilateral)',
+    subtitle: 'Cadena posterior pesada, estabilidad unilateral y bombeo',
+    estimatedDuration: '60 min',
+    focusMuscles: ['Glúteos', 'Isquiosurales', 'Cuádriceps'],
+    items: [
+      {
+        exerciseId: 'g1',
+        setsCount: 3,
+        defaultWeight: 120,
+        defaultReps: 10,
+        defaultRir: 1,
+        previousBest: '120 kg × 10',
+        note: 'Bloqueo completo arriba 1s',
+      },
+      {
+        exerciseId: 'c5',
+        setsCount: 3,
+        defaultWeight: 22,
+        defaultReps: 10,
+        defaultRir: 1,
+        previousBest: '22 kg × 10',
+        note: 'Torso levemente inclinado',
+      },
+      {
+        exerciseId: 'i2',
+        setsCount: 3,
+        defaultWeight: 50,
+        defaultReps: 10,
+        defaultRir: 1,
+        previousBest: '50 kg × 10',
+        note: 'Mantener cadera pegada al banco',
+      },
+      {
+        exerciseId: 'c3',
+        setsCount: 3,
+        defaultWeight: 100,
+        defaultReps: 10,
+        defaultRir: 1,
+        previousBest: '100 kg × 10',
+        note: 'Espalda completamente apoyada',
+      },
+      {
+        exerciseId: 'g2',
+        setsCount: 3,
+        defaultWeight: 60,
+        defaultReps: 15,
+        defaultRir: 1,
+        previousBest: '60 kg × 15',
+        note: 'Controlar el regreso sin chocar placas',
+      },
+    ],
+  },
+  {
+    id: 'ppl-push',
+    splitCategory: 'Push / Pull / Legs',
+    dayBadge: 'PPL • Push',
+    title: 'Empuje (Pecho, Hombros y Tríceps)',
+    subtitle: 'Trabajo completo de cadena anterior de torso',
+    estimatedDuration: '60 min',
+    focusMuscles: ['Pecho', 'Hombros', 'Brazos'],
+    items: [
+      {
+        exerciseId: 'p1',
+        setsCount: 3,
+        defaultWeight: 80,
+        defaultReps: 8,
+        defaultRir: 1,
+        previousBest: '80 kg × 8',
+      },
+      {
+        exerciseId: 'p2',
+        setsCount: 3,
+        defaultWeight: 30,
+        defaultReps: 10,
+        defaultRir: 1,
+        previousBest: '30 kg × 10',
+      },
+      {
+        exerciseId: 'h4',
+        setsCount: 3,
+        defaultWeight: 50,
+        defaultReps: 8,
+        defaultRir: 1,
+        previousBest: '50 kg × 8',
+      },
+      {
+        exerciseId: 'h1',
+        setsCount: 3,
+        defaultWeight: 12,
+        defaultReps: 12,
+        defaultRir: 1,
+        previousBest: '12 kg × 12',
+      },
+      {
+        exerciseId: 't1',
+        setsCount: 3,
+        defaultWeight: 25,
+        defaultReps: 12,
+        defaultRir: 1,
+        previousBest: '25 kg × 12',
+      },
+    ],
+  },
+  {
+    id: 'ppl-pull',
+    splitCategory: 'Push / Pull / Legs',
+    dayBadge: 'PPL • Pull',
+    title: 'Tracción (Espalda, Posterior y Bíceps)',
+    subtitle: 'Tracciones verticales, remos pesados y flexores de codo',
+    estimatedDuration: '60 min',
+    focusMuscles: ['Espalda', 'Hombros', 'Brazos'],
+    items: [
+      {
+        exerciseId: 'e1',
+        setsCount: 3,
+        defaultWeight: 10,
+        defaultReps: 8,
+        defaultRir: 1,
+        previousBest: 'BW + 10 kg × 8',
+      },
+      {
+        exerciseId: 'e3',
+        setsCount: 3,
+        defaultWeight: 65,
+        defaultReps: 10,
+        defaultRir: 1,
+        previousBest: '65 kg × 10',
+      },
+      {
+        exerciseId: 'e4',
+        setsCount: 3,
+        defaultWeight: 35,
+        defaultReps: 10,
+        defaultRir: 1,
+        previousBest: '35 kg × 10',
+      },
+      {
+        exerciseId: 'h6',
+        setsCount: 3,
+        defaultWeight: 30,
+        defaultReps: 15,
+        defaultRir: 1,
+        previousBest: '30 kg × 15',
+      },
+      {
+        exerciseId: 'b1',
+        setsCount: 3,
+        defaultWeight: 32.5,
+        defaultReps: 10,
+        defaultRir: 1,
+        previousBest: '32.5 kg × 10',
+      },
+    ],
+  },
+  {
+    id: 'ppl-legs',
+    splitCategory: 'Push / Pull / Legs',
+    dayBadge: 'PPL • Legs',
+    title: 'Pierna Completa (PPL)',
+    subtitle: 'Cuádriceps, Isquiosurales, Glúteos y Pantorrillas',
+    estimatedDuration: '65 min',
+    focusMuscles: ['Cuádriceps', 'Isquiosurales', 'Glúteos'],
+    items: [
+      {
+        exerciseId: 'c1',
+        setsCount: 3,
+        defaultWeight: 100,
+        defaultReps: 8,
+        defaultRir: 2,
+        previousBest: '100 kg × 8',
+      },
+      {
+        exerciseId: 'i1',
+        setsCount: 3,
+        defaultWeight: 90,
+        defaultReps: 8,
+        defaultRir: 1,
+        previousBest: '90 kg × 8',
+      },
+      {
+        exerciseId: 'g1',
+        setsCount: 3,
+        defaultWeight: 120,
+        defaultReps: 10,
+        defaultRir: 1,
+        previousBest: '120 kg × 10',
+      },
+      {
+        exerciseId: 'c4',
+        setsCount: 3,
+        defaultWeight: 60,
+        defaultReps: 12,
+        defaultRir: 1,
+        previousBest: '60 kg × 12',
+      },
+      {
+        exerciseId: 'i3',
+        setsCount: 3,
+        defaultWeight: 55,
+        defaultReps: 12,
+        defaultRir: 1,
+        previousBest: '55 kg × 12',
+      },
     ],
   },
 ]
@@ -468,12 +1029,13 @@ const MUSCLE_CATEGORIES = [
   'Cuádriceps',
   'Isquiosurales',
   'Glúteos',
+  'Gemelos',
 ]
 
 const EQUIPMENT_OPTIONS = ['Barra', 'Barra Z', 'Mancuerna', 'Polea', 'Máquina', 'Corporal / Lastre']
 
 export default function ActiveWorkoutPage() {
-  // ================= ESTADO DE USUARIO (SUPABASE AUTH) =================
+  // Autenticación Supabase
   const [user, setUser] = useState<any>(null)
   const [authLoading, setAuthLoading] = useState(true)
   const [authEmail, setAuthEmail] = useState('')
@@ -482,7 +1044,7 @@ export default function ActiveWorkoutPage() {
   const [authError, setAuthError] = useState('')
   const [authSubmitting, setAuthSubmitting] = useState(false)
 
-  // Navegación
+  // Vistas
   const [activeTab, setActiveTab] = useState<'home' | 'workout' | 'history' | 'library'>('home')
   const [selectedSplitTab, setSelectedSplitTab] = useState<'Torso / Pierna' | 'Push / Pull / Legs'>(
     'Torso / Pierna'
@@ -491,7 +1053,7 @@ export default function ActiveWorkoutPage() {
   const [showWarmupGuide, setShowWarmupGuide] = useState(false)
   const [bodyWeightKg, setBodyWeightKg] = useState<number>(80)
 
-  // Sesión y Rutina
+  // Sesión
   const [workoutName, setWorkoutName] = useState('Torso A (Fuerza e Hipertrofia)')
   const [sessionSeconds, setSessionSeconds] = useState(0)
   const [isSessionRunning, setIsSessionRunning] = useState(false)
@@ -500,7 +1062,7 @@ export default function ActiveWorkoutPage() {
   const [restSeconds, setRestSeconds] = useState<number | null>(null)
   const [isRestActive, setIsRestActive] = useState(false)
 
-  // Catálogo y vistas
+  // Catálogo y modals
   const [catalog, setCatalog] = useState<CatalogExercise[]>(ANATOMICAL_EXERCISES)
   const [selectedMuscleFilter, setSelectedMuscleFilter] = useState('Todos')
   const [searchQuery, setSearchQuery] = useState('')
@@ -526,7 +1088,7 @@ export default function ActiveWorkoutPage() {
   const [customUrl, setCustomUrl] = useState('')
   const [isSavingCustom, setIsSavingCustom] = useState(false)
 
-  // Lista activa de ejercicios
+  // Ejercicios activos
   const [exercises, setExercises] = useState<WorkoutExercise[]>([
     {
       id: 'ex-1',
@@ -537,10 +1099,11 @@ export default function ActiveWorkoutPage() {
       anatomicalImageUrl:
         'https://fitcron.com/wp-content/uploads/2021/04/18661301-Wide-Grip-Pull-Up-on-Dip-Cage_Back_720.gif',
       previousBest: 'BW + 10 kg × 8',
-      note: 'Controlar bajada 2s',
+      note: 'Controlar fase excéntrica 2 seg',
       sets: [
         { id: 's-1', setNumber: 1, weight: 10, reps: 8, rir: 2, isCompleted: false, isPr: false },
         { id: 's-2', setNumber: 2, weight: 10, reps: 8, rir: 1, isCompleted: false, isPr: false },
+        { id: 's-3', setNumber: 3, weight: 10, reps: 6, rir: 0, isCompleted: false, isPr: true },
       ],
     },
     {
@@ -554,13 +1117,41 @@ export default function ActiveWorkoutPage() {
       previousBest: '80 kg × 8',
       note: 'Retracción escapular firme',
       sets: [
-        { id: 's-3', setNumber: 1, weight: 80, reps: 8, rir: 1, isCompleted: false, isPr: false },
-        { id: 's-4', setNumber: 2, weight: 80, reps: 8, rir: 1, isCompleted: false, isPr: false },
+        { id: 's-4', setNumber: 1, weight: 60, reps: 10, rir: 2, isCompleted: false, isPr: false },
+        { id: 's-5', setNumber: 2, weight: 80, reps: 8, rir: 1, isCompleted: false, isPr: false },
+      ],
+    },
+    {
+      id: 'ex-3',
+      exerciseId: 'e3',
+      name: 'Remo en T (T-Bar Row)',
+      targetMuscle: 'Espalda (Densidad Media y Dorsal)',
+      secondaryMuscle: 'Romboides, Bíceps',
+      anatomicalImageUrl:
+        'https://fitnessprogramer.com/wp-content/uploads/2021/02/Lever-T-bar-Row.gif',
+      previousBest: '65 kg × 10',
+      sets: [
+        { id: 's-6', setNumber: 1, weight: 60, reps: 10, rir: 2, isCompleted: false, isPr: false },
+        { id: 's-7', setNumber: 2, weight: 65, reps: 8, rir: 1, isCompleted: false, isPr: false },
+      ],
+    },
+    {
+      id: 'ex-4',
+      exerciseId: 'b1',
+      name: 'Predicador con barra Z (Banco Scott)',
+      targetMuscle: 'Brazos (Bíceps Cabeza Corta y Braquial)',
+      secondaryMuscle: 'Antebrazo',
+      anatomicalImageUrl:
+        'https://fitnessprogramer.com/wp-content/uploads/2021/02/Z-Bar-Preacher-Curl.gif',
+      previousBest: '32.5 kg × 10',
+      sets: [
+        { id: 's-8', setNumber: 1, weight: 30, reps: 10, rir: 1, isCompleted: false, isPr: false },
+        { id: 's-9', setNumber: 2, weight: 32.5, reps: 8, rir: 1, isCompleted: false, isPr: true },
       ],
     },
   ])
 
-  // ================= 1. REVISAR SESIÓN DE USUARIO AL CARGAR =================
+  // 1. Revisión de sesión Auth
   useEffect(() => {
     const supabase = createClient()
     if (!supabase) {
@@ -582,14 +1173,13 @@ export default function ActiveWorkoutPage() {
     }
   }, [])
 
-  // Iniciar Sesión o Registrarse
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setAuthError('')
     setAuthSubmitting(true)
     const supabase = createClient()
     if (!supabase) {
-      setAuthError('Supabase no configurado')
+      setAuthError('Supabase no configurado en client.ts')
       setAuthSubmitting(false)
       return
     }
@@ -625,7 +1215,7 @@ export default function ActiveWorkoutPage() {
     }
   }
 
-  // ================= 2. CARGAS DE SUPABASE =================
+  // Cargar ejercicios y entrenamientos desde Supabase
   const loadCustomExercises = async () => {
     try {
       const supabase = createClient()
@@ -695,51 +1285,7 @@ export default function ActiveWorkoutPage() {
     }
   }, [activeTab, user])
 
-  // Desglose de series
-  const toggleWorkoutDetails = async (workoutId: string) => {
-    if (expandedWorkoutId === workoutId) {
-      setExpandedWorkoutId(null)
-      return
-    }
-    setExpandedWorkoutId(workoutId)
-    if (workoutSetsMap[workoutId]) return
-
-    setIsLoadingSetsId(workoutId)
-    try {
-      const supabase = createClient()
-      if (!supabase) return
-      const { data, error } = await supabase
-        .from('workout_sets')
-        .select('*')
-        .eq('workout_id', workoutId)
-        .order('set_number', { ascending: true })
-
-      if (data && !error) {
-        setWorkoutSetsMap((prev) => ({ ...prev, [workoutId]: data }))
-      }
-    } catch (err) {
-      console.warn('Error cargando series:', err)
-    } finally {
-      setIsLoadingSetsId(null)
-    }
-  }
-
-  const deleteWorkoutFromHistory = async (workoutId: string, e: React.MouseEvent) => {
-    e.stopPropagation()
-    try {
-      const supabase = createClient()
-      if (!supabase) return
-      const { error } = await supabase.from('workouts').delete().eq('id', workoutId)
-      if (!error) {
-        setHistoryList((prev) => prev.filter((item) => item.id !== workoutId))
-        if (expandedWorkoutId === workoutId) setExpandedWorkoutId(null)
-      }
-    } catch (err) {
-      console.warn('Error al eliminar:', err)
-    }
-  }
-
-  // Cronómetro de sesión (SOLO SI isSessionRunning ES TRUE)
+  // Manejador del cronómetro
   useEffect(() => {
     let interval: NodeJS.Timeout
     if (isSessionRunning) {
@@ -748,7 +1294,7 @@ export default function ActiveWorkoutPage() {
     return () => clearInterval(interval)
   }, [isSessionRunning])
 
-  // Temporizador descanso
+  // Manejador del descanso
   useEffect(() => {
     let interval: NodeJS.Timeout
     if (isRestActive && restSeconds !== null && restSeconds > 0) {
@@ -1019,7 +1565,49 @@ export default function ActiveWorkoutPage() {
     return ROUTINE_TEMPLATES.filter((t) => t.splitCategory === selectedSplitTab)
   }, [selectedSplitTab])
 
-  // ================= 3. GUARDAR ENTRENAMIENTO EN SUPABASE FIRMADO CON USER_ID =================
+  const toggleWorkoutDetails = async (workoutId: string) => {
+    if (expandedWorkoutId === workoutId) {
+      setExpandedWorkoutId(null)
+      return
+    }
+    setExpandedWorkoutId(workoutId)
+    if (workoutSetsMap[workoutId]) return
+
+    setIsLoadingSetsId(workoutId)
+    try {
+      const supabase = createClient()
+      if (!supabase) return
+      const { data, error } = await supabase
+        .from('workout_sets')
+        .select('*')
+        .eq('workout_id', workoutId)
+        .order('set_number', { ascending: true })
+
+      if (data && !error) {
+        setWorkoutSetsMap((prev) => ({ ...prev, [workoutId]: data }))
+      }
+    } catch (err) {
+      console.warn('Error cargando series:', err)
+    } finally {
+      setIsLoadingSetsId(null)
+    }
+  }
+
+  const deleteWorkoutFromHistory = async (workoutId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    try {
+      const supabase = createClient()
+      if (!supabase) return
+      const { error } = await supabase.from('workouts').delete().eq('id', workoutId)
+      if (!error) {
+        setHistoryList((prev) => prev.filter((item) => item.id !== workoutId))
+        if (expandedWorkoutId === workoutId) setExpandedWorkoutId(null)
+      }
+    } catch (err) {
+      console.warn('Error al eliminar:', err)
+    }
+  }
+
   const handleSaveWorkout = async () => {
     setIsSaving(true)
     setSaveSuccess(false)
@@ -1034,7 +1622,7 @@ export default function ActiveWorkoutPage() {
       const { data: workout, error: workoutError } = await supabase
         .from('workouts')
         .insert({
-          user_id: user.id, // ASIGNADO DIRECTAMENTE AL USUARIO
+          user_id: user.id,
           name: workoutName.trim() || 'Sesión de Entrenamiento',
           total_volume_kg: workoutStats.totalVolume,
           completed_at: new Date().toISOString(),
@@ -1080,7 +1668,7 @@ export default function ActiveWorkoutPage() {
     }
   }
 
-  // ================= PANTALLA DE ACCESO (SI NO HAY USUARIO) =================
+  // Si no hay usuario logueado
   if (!user && !authLoading) {
     return (
       <main className="min-h-screen bg-neutral-950 text-white flex items-center justify-center p-4">
@@ -1092,7 +1680,7 @@ export default function ActiveWorkoutPage() {
             {authIsRegister ? 'Crear Cuenta' : 'Acceso Personal'}
           </h2>
           <p className="text-xs text-center text-neutral-400 mt-1 mb-6">
-            Tus rutinas, pesos de 80 kg y series quedarán guardados en tu perfil único.
+            Tus rutinas, pesos y series se guardarán en tu cuenta única.
           </p>
 
           {authError && (
@@ -1163,7 +1751,7 @@ export default function ActiveWorkoutPage() {
     )
   }
 
-  // ================= PANTALLA PRINCIPAL CON USUARIO ACTIVO =================
+  // Interfaz Principal
   return (
     <main className="min-h-screen bg-neutral-950 text-neutral-100 p-4 max-w-md mx-auto pb-28">
       {/* ================= VISTA 0: PANTALLA PRINCIPAL (INICIO) ================= */}
@@ -1268,7 +1856,7 @@ export default function ActiveWorkoutPage() {
             </div>
           </div>
 
-          {/* Calentamiento */}
+          {/* Calentamiento Articular */}
           <div className="bg-neutral-900/90 border border-neutral-800 rounded-2xl p-3.5">
             <div
               onClick={() => setShowWarmupGuide(!showWarmupGuide)}
@@ -1280,10 +1868,10 @@ export default function ActiveWorkoutPage() {
                 </div>
                 <div>
                   <h3 className="text-xs font-bold text-white">
-                    Calentamiento Articular (Hombros / Cadera)
+                    Calentamiento Articular y Series de Aproximación
                   </h3>
                   <p className="text-[11px] text-neutral-400">
-                    Lubricación antes de las series pesadas
+                    Lubricación antes de las series efectivas
                   </p>
                 </div>
               </div>
@@ -1298,17 +1886,17 @@ export default function ActiveWorkoutPage() {
               <div className="mt-3 pt-3 border-t border-neutral-800 space-y-2 text-xs text-neutral-300">
                 <div className="bg-neutral-950 p-2.5 rounded-xl border border-neutral-800/70">
                   <span className="text-lime-400 font-bold block">1. Torso:</span>
-                  Extensión en polea ligera + rotaciones externas de hombro (2 × 15).
+                  Extensión/flexión de codos ligera + rotaciones de hombro (2 × 15).
                 </div>
                 <div className="bg-neutral-950 p-2.5 rounded-xl border border-neutral-800/70">
                   <span className="text-lime-400 font-bold block">2. Pierna:</span>
-                  Movilidad 90/90 de cadera y sentadillas con peso corporal.
+                  Movilidad 90/90 de cadera y sentadillas sin peso.
                 </div>
               </div>
             )}
           </div>
 
-          {/* Rutinas Estructuradas */}
+          {/* Selector de División */}
           <div>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-base font-extrabold text-white flex items-center gap-2">
@@ -1316,6 +1904,28 @@ export default function ActiveWorkoutPage() {
               </h2>
             </div>
 
+            <div className="grid grid-cols-2 gap-2 p-1 bg-neutral-900 border border-neutral-800 rounded-2xl mb-4">
+              {(['Torso / Pierna', 'Push / Pull / Legs'] as const).map((split) => (
+                <button
+                  key={split}
+                  onClick={() => {
+                    setSelectedSplitTab(split)
+                    setExpandedRoutineId(
+                      split === 'Torso / Pierna' ? 'tp-torso-a' : 'ppl-push'
+                    )
+                  }}
+                  className={`py-2 rounded-xl text-xs font-bold transition ${
+                    selectedSplitTab === split
+                      ? 'bg-lime-400 text-neutral-950 shadow-md shadow-lime-400/20'
+                      : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  {split}
+                </button>
+              ))}
+            </div>
+
+            {/* Listado de Rutinas */}
             <div className="space-y-3.5">
               {filteredTemplates.map((routine) => {
                 const isExpanded = expandedRoutineId === routine.id
@@ -1424,7 +2034,6 @@ export default function ActiveWorkoutPage() {
       {/* ================= VISTA 1: ENTRENAR (SESIÓN ACTIVA) ================= */}
       {activeTab === 'workout' && (
         <div>
-          {/* Header & Cronómetro */}
           <header className="border-b border-neutral-800 pb-3.5 mb-4">
             <div className="flex items-center justify-between gap-2">
               <div className="flex-1 min-w-0">
@@ -1442,7 +2051,7 @@ export default function ActiveWorkoutPage() {
                 </div>
               </div>
 
-              {/* CONTROLES DE CRONÓMETRO: INICIAR / PAUSAR */}
+              {/* Botón de Iniciar / Pausar Cronómetro */}
               <div className="flex items-center gap-2 shrink-0">
                 <div className="flex items-center gap-1.5 bg-neutral-900 border border-neutral-800 px-2.5 py-1.5 rounded-xl font-mono text-sm font-semibold text-lime-400">
                   <Clock className="w-3.5 h-3.5" />
@@ -1455,7 +2064,7 @@ export default function ActiveWorkoutPage() {
                       ? 'bg-neutral-900 border-neutral-800 text-neutral-300'
                       : 'bg-lime-400 border-lime-400 text-neutral-950 font-bold'
                   }`}
-                  title={isSessionRunning ? 'Pausar' : 'Iniciar Tiempo'}
+                  title={isSessionRunning ? 'Pausar' : 'Iniciar'}
                 >
                   {isSessionRunning ? (
                     <Pause className="w-4 h-4" />
@@ -1535,7 +2144,7 @@ export default function ActiveWorkoutPage() {
                     </button>
                   </div>
 
-                  {/* Tabla de Series */}
+                  {/* Tabla de Series con auto-select de peso */}
                   <div className="grid grid-cols-12 text-[11px] text-neutral-400 uppercase font-semibold mb-2 px-1 text-center">
                     <span className="col-span-2 text-left">Serie</span>
                     <span className="col-span-3">Kg</span>
@@ -1564,7 +2173,7 @@ export default function ActiveWorkoutPage() {
                           {set.isPr && <Trophy className="w-3.5 h-3.5 text-yellow-400 inline" />}
                         </div>
 
-                        {/* INPUT PESO CORREGIDO: SELECCIÓN AUTOMÁTICA EN CELULAR */}
+                        {/* INPUT PESO CORREGIDO */}
                         <div className="col-span-3">
                           <input
                             type="text"
