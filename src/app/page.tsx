@@ -886,7 +886,6 @@ export default function ActiveWorkoutPage() {
       console.warn('Error leyendo programas:', e)
     }
   }, [])
-
   const savePrograms = (newList: WorkoutProgram[]) => {
     setProgramsList(newList)
     try {
