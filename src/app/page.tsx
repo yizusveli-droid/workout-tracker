@@ -23,12 +23,11 @@ import {
   BookOpen,
   Edit3,
   PlusCircle,
-  Image as ImageIcon,
   Home,
   Flame,
   Layers,
   Activity,
-  ShieldCheck,
+  FolderPlus,
   LogOut,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -81,15 +80,20 @@ interface RoutineTemplateItem {
   previousBest?: string
 }
 
-interface RoutineTemplate {
+interface ProgramDay {
   id: string
-  splitCategory: 'Mi División (5 Días)' | 'Push / Pull / Legs' | 'Personalizadas'
   dayBadge: string
   title: string
   subtitle: string
   estimatedDuration: string
-  focusMuscles: string[]
   items: RoutineTemplateItem[]
+}
+
+interface WorkoutProgram {
+  id: string
+  name: string
+  description?: string
+  days: ProgramDay[]
 }
 
 const VERIFIED_MUSCLE_GIFS: Record<string, string> = {
@@ -205,9 +209,6 @@ function AnatomicalImage({
         />
         <ellipse cx="43" cy="46" rx="7" ry="9" fill="#ef4444" opacity="0.9" />
         <ellipse cx="57" cy="46" rx="7" ry="9" fill="#ef4444" opacity="0.9" />
-        <path d="M32 38 Q26 48 31 58" stroke="#ef4444" strokeWidth="5" strokeLinecap="round" fill="none" />
-        <path d="M68 38 Q74 48 69 58" stroke="#ef4444" strokeWidth="5" strokeLinecap="round" fill="none" />
-        <path d="M42 72 L39 108 L47 108 L50 82 L53 108 L61 108 L58 72 Z" fill="#9ca3af" />
       </svg>
     )
   }
@@ -228,7 +229,7 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     id: 'e1',
     name: 'Dominadas en barra (Pull-ups / Lastre)',
     target_muscle: 'Espalda (Dorsales)',
-    secondary_muscle: 'Bíceps, Redondo Mayor, Core',
+    secondary_muscle: 'Bíceps, Redondo Mayor',
     equipment: 'Corporal / Lastre',
     anatomical_image_url:
       'https://fitcron.com/wp-content/uploads/2021/04/18661301-Wide-Grip-Pull-Up-on-Dip-Cage_Back_720.gif',
@@ -270,24 +271,6 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
       'https://fitnessprogramer.com/wp-content/uploads/2021/02/Lat-Pulldown.gif',
   },
   {
-    id: 'e6',
-    name: 'Remo con barra (Pendlay / 45°)',
-    target_muscle: 'Espalda (Media y Dorsal)',
-    secondary_muscle: 'Romboides, Erectores Espinales',
-    equipment: 'Barra',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Bent-Over-Row.gif',
-  },
-  {
-    id: 'e7',
-    name: 'Remo unilateral con mancuerna (Serrucho)',
-    target_muscle: 'Espalda (Dorsal y Redondo)',
-    secondary_muscle: 'Bíceps, Deltoides Posterior',
-    equipment: 'Mancuerna',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Row.gif',
-  },
-  {
     id: 'e8',
     name: 'Remo sentado en polea baja (Gironda)',
     target_muscle: 'Espalda (Media y Dorsal)',
@@ -315,15 +298,6 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
       'https://fitnessprogramer.com/wp-content/uploads/2021/02/Incline-Dumbbell-Press.gif',
   },
   {
-    id: 'p5',
-    name: 'Aperturas en máquina (Pec Deck / Contractora)',
-    target_muscle: 'Pecho (Aislamiento Pectoral)',
-    secondary_muscle: 'Deltoides Anterior',
-    equipment: 'Máquina',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Pec-Deck-Fly.gif',
-  },
-  {
     id: 'h1',
     name: 'Elevaciones laterales sentado con mancuernas',
     target_muscle: 'Hombros (Deltoides Lateral)',
@@ -333,18 +307,9 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
       'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Lateral-Raise.gif',
   },
   {
-    id: 'h4',
-    name: 'Press militar de pie con barra (OHP)',
-    target_muscle: 'Hombros (Deltoides Anterior y Medio)',
-    secondary_muscle: 'Tríceps, Core, Trapecio',
-    equipment: 'Barra',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Military-Press.gif',
-  },
-  {
     id: 'h6',
     name: 'Face Pull en polea alta con cuerda',
-    target_muscle: 'Hombros (Deltoides Posterior y Manguito)',
+    target_muscle: 'Hombros (Deltoides Posterior)',
     secondary_muscle: 'Trapecio Medio, Romboides',
     equipment: 'Polea',
     anatomical_image_url:
@@ -354,19 +319,10 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     id: 'b1',
     name: 'Predicador con barra Z (Banco Scott)',
     target_muscle: 'Brazos (Bíceps Cabeza Corta y Braquial)',
-    secondary_muscle: 'Supinador Largo (Antebrazo)',
+    secondary_muscle: 'Supinador Largo',
     equipment: 'Barra Z',
     anatomical_image_url:
       'https://fitnessprogramer.com/wp-content/uploads/2021/02/Z-Bar-Preacher-Curl.gif',
-  },
-  {
-    id: 'b2',
-    name: 'Curl de bíceps de pie con barra Z / recta',
-    target_muscle: 'Brazos (Bíceps Braquial)',
-    secondary_muscle: 'Braquial Anterior, Antebrazo',
-    equipment: 'Barra Z',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Curl.gif',
   },
   {
     id: 'b3',
@@ -417,7 +373,7 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     id: 'c1',
     name: 'Sentadilla trasera con barra (Back Squat)',
     target_muscle: 'Cuádriceps (Vasto Lateral, Medial y Recto)',
-    secondary_muscle: 'Glúteo Mayor, Aductores, Core',
+    secondary_muscle: 'Glúteo Mayor, Aductores',
     equipment: 'Barra',
     anatomical_image_url:
       'https://fitnessprogramer.com/wp-content/uploads/2021/02/BARBELL-SQUAT.gif',
@@ -487,90 +443,85 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
   },
 ]
 
-// ================= TU DIVISIÓN EXACTA DE 5 DÍAS =================
-const DEFAULT_5_DAY_SPLIT: RoutineTemplate[] = [
-  {
-    id: 'split-d1-torso-a',
-    splitCategory: 'Mi División (5 Días)',
-    dayBadge: 'Día 1 • Torso A',
-    title: 'Torso A (Fuerza e Hipertrofia)',
-    subtitle: 'Espalda dominante, press pesado, hombro lateral y brazos',
-    estimatedDuration: '60 min',
-    focusMuscles: ['Espalda', 'Pecho', 'Hombros', 'Brazos'],
-    items: [
-      { exerciseId: 'e1', setsCount: 3, defaultWeight: 10, defaultReps: 8, defaultRir: 1, note: 'Pausa 1s arriba' },
-      { exerciseId: 'p1', setsCount: 3, defaultWeight: 80, defaultReps: 8, defaultRir: 1, note: 'Retracción escapular' },
-      { exerciseId: 'e3', setsCount: 3, defaultWeight: 65, defaultReps: 10, defaultRir: 1, note: 'Codos pegados' },
-      { exerciseId: 'h1', setsCount: 3, defaultWeight: 12, defaultReps: 12, defaultRir: 1, note: 'Sentado' },
-      { exerciseId: 'b1', setsCount: 2, defaultWeight: 32.5, defaultReps: 10, defaultRir: 1, note: 'Banco Scott' },
-      { exerciseId: 't1', setsCount: 2, defaultWeight: 25, defaultReps: 12, defaultRir: 1, note: 'Extensión tras nuca' },
-    ],
-  },
-  {
-    id: 'split-d2-pierna-a',
-    splitCategory: 'Mi División (5 Días)',
-    dayBadge: 'Día 2 • Pierna',
-    title: 'Pierna (Cuádriceps y Cadena Posterior)',
-    subtitle: 'Sentadilla pesada, bisagra RDL y prensa 45°',
-    estimatedDuration: '65 min',
-    focusMuscles: ['Cuádriceps', 'Isquiosurales', 'Glúteos', 'Gemelos'],
-    items: [
-      { exerciseId: 'c1', setsCount: 3, defaultWeight: 100, defaultReps: 8, defaultRir: 2, note: 'Rompiendo paralelo' },
-      { exerciseId: 'i1', setsCount: 3, defaultWeight: 90, defaultReps: 8, defaultRir: 2, note: 'Cadera atrás' },
-      { exerciseId: 'c2', setsCount: 3, defaultWeight: 180, defaultReps: 10, defaultRir: 1, note: 'Rango profundo' },
-      { exerciseId: 'i3', setsCount: 3, defaultWeight: 55, defaultReps: 12, defaultRir: 1, note: 'Pausa en flexión' },
-      { exerciseId: 'cal1', setsCount: 3, defaultWeight: 70, defaultReps: 15, defaultRir: 1, note: 'Estiramiento abajo' },
-    ],
-  },
-  {
-    id: 'split-d3-torso-b',
-    splitCategory: 'Mi División (5 Días)',
-    dayBadge: 'Día 3 • Torso B',
-    title: 'Torso B (Densidad y Amplitud)',
-    subtitle: 'Pectoral clavicular, remo con apoyo y deltoides posterior',
-    estimatedDuration: '60 min',
-    focusMuscles: ['Pecho', 'Espalda', 'Hombros', 'Brazos'],
-    items: [
-      { exerciseId: 'p2', setsCount: 3, defaultWeight: 30, defaultReps: 10, defaultRir: 1, note: 'Banco a 30°' },
-      { exerciseId: 'e5', setsCount: 3, defaultWeight: 65, defaultReps: 10, defaultRir: 1, note: 'Jalón al pecho' },
-      { exerciseId: 'e8', setsCount: 3, defaultWeight: 60, defaultReps: 10, defaultRir: 1, note: 'Remo sentado Gironda' },
-      { exerciseId: 'h6', setsCount: 3, defaultWeight: 30, defaultReps: 15, defaultRir: 1, note: 'Face Pull con cuerda' },
-      { exerciseId: 'b4', setsCount: 2, defaultWeight: 16, defaultReps: 10, defaultRir: 1, note: 'Martillo pesado' },
-      { exerciseId: 't2', setsCount: 2, defaultWeight: 30, defaultReps: 12, defaultRir: 1, note: 'Extensión en polea' },
-    ],
-  },
-  {
-    id: 'split-d4-pierna-b',
-    splitCategory: 'Mi División (5 Días)',
-    dayBadge: 'Día 4 • Pierna',
-    title: 'Pierna (Glúteo y Trabajo Unilateral)',
-    subtitle: 'Hip Thrust, búlgaras profundas y sillón de cuádriceps',
-    estimatedDuration: '60 min',
-    focusMuscles: ['Glúteos', 'Cuádriceps', 'Isquiosurales'],
-    items: [
-      { exerciseId: 'g1', setsCount: 3, defaultWeight: 120, defaultReps: 10, defaultRir: 1, note: 'Bloqueo 1s arriba' },
-      { exerciseId: 'c5', setsCount: 3, defaultWeight: 22, defaultReps: 10, defaultRir: 1, note: 'Sentadilla búlgara' },
-      { exerciseId: 'c4', setsCount: 3, defaultWeight: 60, defaultReps: 12, defaultRir: 1, note: 'Sillón de cuádriceps' },
-      { exerciseId: 'i3', setsCount: 3, defaultWeight: 50, defaultReps: 12, defaultRir: 1, note: 'Femoral sentado' },
-    ],
-  },
-  {
-    id: 'split-d5-brazos',
-    splitCategory: 'Mi División (5 Días)',
-    dayBadge: 'Día 5 • Brazos',
-    title: 'Brazos y Hombros (Aislamiento Completo)',
-    subtitle: 'Bíceps estiramiento, tríceps cabeza larga y deltoides lateral',
-    estimatedDuration: '50 - 55 min',
-    focusMuscles: ['Brazos', 'Hombros'],
-    items: [
-      { exerciseId: 'b1', setsCount: 3, defaultWeight: 32.5, defaultReps: 10, defaultRir: 1, note: 'Scott con barra Z' },
-      { exerciseId: 't1', setsCount: 3, defaultWeight: 25, defaultReps: 12, defaultRir: 1, note: 'Extensión tras nuca polea' },
-      { exerciseId: 'b3', setsCount: 3, defaultWeight: 14, defaultReps: 10, defaultRir: 1, note: 'Curl en banco inclinado' },
-      { exerciseId: 't3', setsCount: 3, defaultWeight: 30, defaultReps: 10, defaultRir: 1, note: 'Press francés tumbado' },
-      { exerciseId: 'h1', setsCount: 4, defaultWeight: 12, defaultReps: 15, defaultRir: 0, note: 'Elevaciones laterales al fallo' },
-    ],
-  },
-]
+// ================= PROGRAMA BASE DE 5 DÍAS =================
+const DEFAULT_5_DAY_PROGRAM: WorkoutProgram = {
+  id: 'prog-5-dias-base',
+  name: 'Mi División de 5 Días',
+  description: 'Estructura personalizada: Torso A, Pierna, Torso B, Pierna y Brazos',
+  days: [
+    {
+      id: 'd1-torso-a',
+      dayBadge: 'Día 1',
+      title: 'Torso A (Fuerza e Hipertrofia)',
+      subtitle: 'Espalda dominante, banca pesada, laterales y brazos',
+      estimatedDuration: '60 min',
+      items: [
+        { exerciseId: 'e1', setsCount: 3, defaultWeight: 10, defaultReps: 8, defaultRir: 1, note: 'Pausa 1s arriba' },
+        { exerciseId: 'p1', setsCount: 3, defaultWeight: 80, defaultReps: 8, defaultRir: 1, note: 'Retracción firme' },
+        { exerciseId: 'e3', setsCount: 3, defaultWeight: 65, defaultReps: 10, defaultRir: 1, note: 'Remo T' },
+        { exerciseId: 'h1', setsCount: 3, defaultWeight: 12, defaultReps: 12, defaultRir: 1, note: 'Laterales' },
+        { exerciseId: 'b1', setsCount: 2, defaultWeight: 32.5, defaultReps: 10, defaultRir: 1, note: 'Predicador' },
+        { exerciseId: 't1', setsCount: 2, defaultWeight: 25, defaultReps: 12, defaultRir: 1, note: 'Overhead' },
+      ],
+    },
+    {
+      id: 'd2-pierna-a',
+      dayBadge: 'Día 2',
+      title: 'Pierna (Cuádriceps y Posterior)',
+      subtitle: 'Sentadilla trasera, peso muerto rumano y prensa 45°',
+      estimatedDuration: '65 min',
+      items: [
+        { exerciseId: 'c1', setsCount: 3, defaultWeight: 100, defaultReps: 8, defaultRir: 2, note: 'Profunda' },
+        { exerciseId: 'i1', setsCount: 3, defaultWeight: 90, defaultReps: 8, defaultRir: 2, note: 'Cadera atrás' },
+        { exerciseId: 'c2', setsCount: 3, defaultWeight: 180, defaultReps: 10, defaultRir: 1, note: 'Prensa 45°' },
+        { exerciseId: 'i3', setsCount: 3, defaultWeight: 55, defaultReps: 12, defaultRir: 1, note: 'Femoral sentado' },
+        { exerciseId: 'cal1', setsCount: 3, defaultWeight: 70, defaultReps: 15, defaultRir: 1, note: 'Gemelos' },
+      ],
+    },
+    {
+      id: 'd3-torso-b',
+      dayBadge: 'Día 3',
+      title: 'Torso B (Densidad y Amplitud)',
+      subtitle: 'Press inclinado mancuernas, jalón al pecho y deltoides posterior',
+      estimatedDuration: '60 min',
+      items: [
+        { exerciseId: 'p2', setsCount: 3, defaultWeight: 30, defaultReps: 10, defaultRir: 1, note: 'Inclinado 30°' },
+        { exerciseId: 'e5', setsCount: 3, defaultWeight: 65, defaultReps: 10, defaultRir: 1, note: 'Jalón polea' },
+        { exerciseId: 'e8', setsCount: 3, defaultWeight: 60, defaultReps: 10, defaultRir: 1, note: 'Remo Gironda' },
+        { exerciseId: 'h6', setsCount: 3, defaultWeight: 30, defaultReps: 15, defaultRir: 1, note: 'Face pull' },
+        { exerciseId: 'b4', setsCount: 2, defaultWeight: 16, defaultReps: 10, defaultRir: 1, note: 'Martillo' },
+        { exerciseId: 't2', setsCount: 2, defaultWeight: 30, defaultReps: 12, defaultRir: 1, note: 'Cuerda tríceps' },
+      ],
+    },
+    {
+      id: 'd4-pierna-b',
+      dayBadge: 'Día 4',
+      title: 'Pierna (Glúteo y Unilateral)',
+      subtitle: 'Hip Thrust pesado, sentadillas búlgaras y extensiones',
+      estimatedDuration: '60 min',
+      items: [
+        { exerciseId: 'g1', setsCount: 3, defaultWeight: 120, defaultReps: 10, defaultRir: 1, note: 'Bloqueo 1s' },
+        { exerciseId: 'c5', setsCount: 3, defaultWeight: 22, defaultReps: 10, defaultRir: 1, note: 'Búlgaras' },
+        { exerciseId: 'c4', setsCount: 3, defaultWeight: 60, defaultReps: 12, defaultRir: 1, note: 'Sillón cuádriceps' },
+        { exerciseId: 'i3', setsCount: 3, defaultWeight: 50, defaultReps: 12, defaultRir: 1, note: 'Femoral sentado' },
+      ],
+    },
+    {
+      id: 'd5-brazos',
+      dayBadge: 'Día 5',
+      title: 'Brazos y Hombros (Aislamiento)',
+      subtitle: 'Bíceps estiramiento, tríceps tras nuca y laterales al fallo',
+      estimatedDuration: '55 min',
+      items: [
+        { exerciseId: 'b1', setsCount: 3, defaultWeight: 32.5, defaultReps: 10, defaultRir: 1, note: 'Scott Z' },
+        { exerciseId: 't1', setsCount: 3, defaultWeight: 25, defaultReps: 12, defaultRir: 1, note: 'Overhead polea' },
+        { exerciseId: 'b3', setsCount: 3, defaultWeight: 14, defaultReps: 10, defaultRir: 1, note: 'Curl 60°' },
+        { exerciseId: 't3', setsCount: 3, defaultWeight: 30, defaultReps: 10, defaultRir: 1, note: 'Press francés' },
+        { exerciseId: 'h1', setsCount: 4, defaultWeight: 12, defaultReps: 15, defaultRir: 0, note: 'Laterales RIR 0' },
+      ],
+    },
+  ],
+}
 
 export default function ActiveWorkoutPage() {
   const [user, setUser] = useState<any>(null)
@@ -582,20 +533,23 @@ export default function ActiveWorkoutPage() {
   const [authSubmitting, setAuthSubmitting] = useState(false)
 
   const [activeTab, setActiveTab] = useState<'home' | 'workout' | 'history' | 'library'>('home')
-  const [selectedSplitTab, setSelectedSplitTab] = useState<'Mi División (5 Días)' | 'Personalizadas'>(
-    'Mi División (5 Días)'
-  )
-  const [expandedRoutineId, setExpandedRoutineId] = useState<string | null>('split-d1-torso-a')
-  const [showWarmupGuide, setShowWarmupGuide] = useState(false)
   const [bodyWeightKg, setBodyWeightKg] = useState<number>(80)
 
-  // Creador de Rutinas Personalizadas Modal
-  const [isCreatingRoutine, setIsCreatingRoutine] = useState(false)
-  const [newRoutineTitle, setNewRoutineTitle] = useState('')
-  const [newRoutineBadge, setNewRoutineBadge] = useState('Día Personalizado')
-  const [newRoutineSubtitle, setNewRoutineSubtitle] = useState('')
+  // PROGRAMAS Y RUTINAS CON DÍAS DIVIDIDOS DENTRO
+  const [programsList, setProgramsList] = useState<WorkoutProgram[]>([DEFAULT_5_DAY_PROGRAM])
+  const [selectedProgramId, setSelectedProgramId] = useState<string>(DEFAULT_5_DAY_PROGRAM.id)
+  const [activeDayIndex, setActiveDayIndex] = useState<number>(0)
+
+  // Modales de creación
+  const [isCreatingProgram, setIsCreatingProgram] = useState(false)
+  const [newProgramName, setNewProgramName] = useState('')
+  const [newProgramDesc, setNewProgramDesc] = useState('')
+
+  const [isAddingDay, setIsAddingDay] = useState(false)
+  const [newDayBadge, setNewDayBadge] = useState('Día 1')
+  const [newDayTitle, setNewDayTitle] = useState('')
+  const [newDaySubtitle, setNewDaySubtitle] = useState('')
   const [selectedExerciseIds, setSelectedExerciseIds] = useState<string[]>([])
-  const [customRoutinesList, setCustomRoutinesList] = useState<RoutineTemplate[]>([])
 
   // Sesión y Cronómetro
   const [workoutName, setWorkoutName] = useState('Torso A (Fuerza e Hipertrofia)')
@@ -655,19 +609,32 @@ export default function ActiveWorkoutPage() {
     },
   ])
 
-  // Cargar rutinas personalizadas desde localStorage
+  // Cargar programas guardados
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('custom_user_routines')
-      if (saved) {
-        setCustomRoutinesList(JSON.parse(saved))
+      const savedProgs = localStorage.getItem('user_workout_programs_v2')
+      if (savedProgs) {
+        const parsed = JSON.parse(savedProgs)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setProgramsList(parsed)
+          setSelectedProgramId(parsed[0].id)
+        }
       }
     } catch (e) {
-      console.warn('Error leyendo rutinas personalizadas:', e)
+      console.warn('Error leyendo programas:', e)
     }
   }, [])
 
-  // Revisar sesión Auth
+  const savePrograms = (newList: WorkoutProgram[]) => {
+    setProgramsList(newList)
+    try {
+      localStorage.setItem('user_workout_programs_v2', JSON.stringify(newList))
+    } catch (e) {
+      console.warn('Error guardando programas:', e)
+    }
+  }
+
+  // Auth Supabase
   useEffect(() => {
     const supabase = createClient()
     if (!supabase) {
@@ -760,7 +727,7 @@ export default function ActiveWorkoutPage() {
     }
   }, [activeTab, user])
 
-  // Cronómetro manual (solo si isSessionRunning es true)
+  // Cronómetro activo
   useEffect(() => {
     let interval: NodeJS.Timeout
     if (isSessionRunning) {
@@ -769,7 +736,7 @@ export default function ActiveWorkoutPage() {
     return () => clearInterval(interval)
   }, [isSessionRunning])
 
-  // Temporizador de descanso
+  // Temporizador descanso
   useEffect(() => {
     let interval: NodeJS.Timeout
     if (isRestActive && restSeconds !== null && restSeconds > 0) {
@@ -865,8 +832,9 @@ export default function ActiveWorkoutPage() {
     setExercises((prev) => prev.filter((ex) => ex.id !== exerciseId))
   }
 
-  const handleStartRoutineTemplate = (template: RoutineTemplate) => {
-    const builtExercises: WorkoutExercise[] = template.items.map((item, idx) => {
+  // Iniciar un Día específico de la rutina
+  const handleStartDay = (day: ProgramDay) => {
+    const builtExercises: WorkoutExercise[] = day.items.map((item, idx) => {
       const catEx =
         catalog.find((c) => c.id === item.exerciseId) ||
         ANATOMICAL_EXERCISES.find((c) => c.id === item.exerciseId) ||
@@ -895,17 +863,40 @@ export default function ActiveWorkoutPage() {
       }
     })
 
-    setWorkoutName(template.title)
+    setWorkoutName(day.title)
     setExercises(builtExercises)
     setSessionSeconds(0)
     setIsSessionRunning(true)
     setActiveTab('workout')
   }
 
-  // Guardar Rutina Creada
-  const handleSaveCustomRoutine = () => {
-    if (!newRoutineTitle.trim() || selectedExerciseIds.length === 0) {
-      alert('Por favor ingresa un nombre y selecciona al menos 1 ejercicio.')
+  // Crear un Programa/Rutina General (ej. "Rutina 1")
+  const handleCreateProgram = () => {
+    if (!newProgramName.trim()) {
+      alert('Ingresa el nombre del programa.')
+      return
+    }
+
+    const newProg: WorkoutProgram = {
+      id: `prog-${Date.now()}`,
+      name: newProgramName.trim(),
+      description: newProgramDesc.trim() || 'Programa personalizado con días divididos',
+      days: [],
+    }
+
+    const updated = [...programsList, newProg]
+    savePrograms(updated)
+    setSelectedProgramId(newProg.id)
+    setActiveDayIndex(0)
+    setIsCreatingProgram(false)
+    setNewProgramName('')
+    setNewProgramDesc('')
+  }
+
+  // Añadir un Día dividido dentro de la Rutina actual
+  const handleAddDayToCurrentProgram = () => {
+    if (!newDayTitle.trim() || selectedExerciseIds.length === 0) {
+      alert('Ingresa el nombre del día (ej. Torso A o Pierna) y selecciona al menos 1 ejercicio.')
       return
     }
 
@@ -918,34 +909,34 @@ export default function ActiveWorkoutPage() {
       note: 'Serie efectiva',
     }))
 
-    const newTemplate: RoutineTemplate = {
-      id: `custom-rot-${Date.now()}`,
-      splitCategory: 'Personalizadas',
-      dayBadge: newRoutineBadge.trim() || 'Día Personalizado',
-      title: newRoutineTitle.trim(),
-      subtitle: newRoutineSubtitle.trim() || `${selectedExerciseIds.length} ejercicios seleccionados`,
+    const newDay: ProgramDay = {
+      id: `day-${Date.now()}`,
+      dayBadge: newDayBadge.trim() || `Día ${currentProgram?.days.length ? currentProgram.days.length + 1 : 1}`,
+      title: newDayTitle.trim(),
+      subtitle: newDaySubtitle.trim() || `${selectedExerciseIds.length} ejercicios seleccionados`,
       estimatedDuration: '60 min',
-      focusMuscles: ['Personalizado'],
       items,
     }
 
-    const updated = [newTemplate, ...customRoutinesList]
-    setCustomRoutinesList(updated)
-    try {
-      localStorage.setItem('custom_user_routines', JSON.stringify(updated))
-    } catch (e) {
-      console.warn('Error guardando rutina:', e)
-    }
+    const updated = programsList.map((prog) => {
+      if (prog.id === selectedProgramId) {
+        return {
+          ...prog,
+          days: [...prog.days, newDay],
+        }
+      }
+      return prog
+    })
 
-    setIsCreatingRoutine(false)
-    setNewRoutineTitle('')
-    setNewRoutineSubtitle('')
+    savePrograms(updated)
+    setIsAddingDay(false)
+    setNewDayTitle('')
+    setNewDaySubtitle('')
     setSelectedExerciseIds([])
-    setSelectedSplitTab('Personalizadas')
-    setExpandedRoutineId(newTemplate.id)
+    setActiveDayIndex((currentProgram?.days.length || 0))
   }
 
-  const toggleSelectExerciseForRoutine = (id: string) => {
+  const toggleSelectExercise = (id: string) => {
     setSelectedExerciseIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     )
@@ -974,12 +965,14 @@ export default function ActiveWorkoutPage() {
     return { totalSessions, accumulatedVolume }
   }, [historyList])
 
-  const currentDisplayTemplates = useMemo(() => {
-    if (selectedSplitTab === 'Mi División (5 Días)') {
-      return DEFAULT_5_DAY_SPLIT
-    }
-    return customRoutinesList
-  }, [selectedSplitTab, customRoutinesList])
+  const currentProgram = useMemo(() => {
+    return programsList.find((p) => p.id === selectedProgramId) || programsList[0]
+  }, [programsList, selectedProgramId])
+
+  const currentDay = useMemo(() => {
+    if (!currentProgram || currentProgram.days.length === 0) return null
+    return currentProgram.days[activeDayIndex] || currentProgram.days[0]
+  }, [currentProgram, activeDayIndex])
 
   const handleSaveWorkout = async () => {
     setIsSaving(true)
@@ -1038,7 +1031,7 @@ export default function ActiveWorkoutPage() {
     }
   }
 
-  // Pantalla de Login si no hay usuario
+  // Pantalla de Login
   if (!user && !authLoading) {
     return (
       <main className="min-h-screen bg-neutral-950 text-white flex items-center justify-center p-4">
@@ -1050,7 +1043,7 @@ export default function ActiveWorkoutPage() {
             {authIsRegister ? 'Crear Cuenta' : 'Acceso Personal'}
           </h2>
           <p className="text-xs text-center text-neutral-400 mt-1 mb-6">
-            Inicia sesión para registrar tu división y guardar tus series en tu perfil.
+            Inicia sesión para gestionar tus rutinas y días divididos.
           </p>
 
           {authError && (
@@ -1109,15 +1102,15 @@ export default function ActiveWorkoutPage() {
 
   return (
     <main className="min-h-screen bg-neutral-950 text-neutral-100 p-4 max-w-md mx-auto pb-28">
-      {/* ================= PANTALLA PRINCIPAL: INICIO ================= */}
+      {/* ================= VISTA 0: PANEL DE RUTINAS CON DÍAS DIVIDIDOS ================= */}
       {activeTab === 'home' && (
-        <div className="space-y-5">
-          <header className="flex items-center justify-between border-b border-neutral-800 pb-4">
+        <div className="space-y-4">
+          <header className="flex items-center justify-between border-b border-neutral-800 pb-3">
             <div>
               <span className="text-[11px] uppercase tracking-wider text-lime-400 font-bold flex items-center gap-1">
                 <Flame className="w-3.5 h-3.5" /> Tracker Personal
               </span>
-              <h1 className="text-2xl font-extrabold text-white tracking-tight mt-0.5">
+              <h1 className="text-xl font-extrabold text-white tracking-tight mt-0.5">
                 Panel de Rutinas
               </h1>
             </div>
@@ -1131,8 +1124,8 @@ export default function ActiveWorkoutPage() {
                 <LogOut className="w-4 h-4" />
               </button>
 
-              <div className="bg-neutral-900 border border-neutral-800 rounded-2xl px-3 py-1.5 text-right">
-                <span className="text-[10px] uppercase font-bold text-neutral-400 block">Peso</span>
+              <div className="bg-neutral-900 border border-neutral-800 rounded-2xl px-3 py-1 text-right">
+                <span className="text-[9px] uppercase font-bold text-neutral-400 block">Peso</span>
                 <div className="flex items-center justify-end gap-1">
                   <input
                     type="text"
@@ -1153,251 +1146,304 @@ export default function ActiveWorkoutPage() {
             </div>
           </header>
 
-          {/* Banner de sesión activa si el cronómetro está corriendo */}
+          {/* Banner de sesión activa */}
           {(sessionSeconds > 0 || workoutStats.totalCompletedSets > 0) && (
             <div
               onClick={() => setActiveTab('workout')}
-              className="bg-lime-400/10 border border-lime-400/40 rounded-2xl p-3.5 flex items-center justify-between cursor-pointer hover:bg-lime-400/15 transition shadow-lg"
+              className="bg-lime-400/10 border border-lime-400/40 rounded-2xl p-3 flex items-center justify-between cursor-pointer hover:bg-lime-400/15 transition shadow-lg"
             >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-lime-400 text-neutral-950 flex items-center justify-center font-bold">
-                  <Activity className="w-5 h-5 animate-pulse" />
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-lime-400 text-neutral-950 flex items-center justify-center font-bold">
+                  <Activity className="w-4 h-4 animate-pulse" />
                 </div>
                 <div>
                   <span className="text-[10px] uppercase font-extrabold tracking-wider text-lime-400 block">
-                    Sesión en curso • {formatTime(sessionSeconds)}
+                    Sesión activa • {formatTime(sessionSeconds)}
                   </span>
-                  <h3 className="text-sm font-bold text-white">{workoutName}</h3>
+                  <h3 className="text-xs font-bold text-white truncate max-w-[200px]">{workoutName}</h3>
                 </div>
               </div>
-              <button className="px-3 py-1.5 bg-lime-400 text-neutral-950 font-bold text-xs rounded-xl">
-                Continuar →
+              <button className="px-2.5 py-1 bg-lime-400 text-neutral-950 font-bold text-xs rounded-xl">
+                Ver →
               </button>
             </div>
           )}
 
-          {/* Métricas Rápidas */}
-          <div className="grid grid-cols-3 gap-2.5">
-            <div className="bg-neutral-900 border border-neutral-800/90 rounded-2xl p-3">
-              <span className="text-[10px] uppercase font-bold text-neutral-400 block">Sesiones</span>
-              <span className="text-lg font-extrabold font-mono text-white mt-0.5 block">{historySummaryStats.totalSessions}</span>
-              <span className="text-[10px] text-lime-400 font-medium">Guardadas</span>
-            </div>
-
-            <div className="bg-neutral-900 border border-neutral-800/90 rounded-2xl p-3">
-              <span className="text-[10px] uppercase font-bold text-neutral-400 block">Tonelaje</span>
-              <span className="text-lg font-extrabold font-mono text-lime-400 mt-0.5 block">{historySummaryStats.accumulatedVolume} kg</span>
-              <span className="text-[10px] text-neutral-400 font-medium">Histórico</span>
-            </div>
-
-            <div className="bg-neutral-900 border border-neutral-800/90 rounded-2xl p-3">
-              <span className="text-[10px] uppercase font-bold text-neutral-400 block">Objetivo</span>
-              <span className="text-lg font-extrabold font-mono text-white mt-0.5 block">RIR 1 - 2</span>
-              <span className="text-[10px] text-lime-400 font-medium">Hipertrofia</span>
-            </div>
+          {/* ================= 1. SELECTOR DE PROGRAMA GENERAL ================= */}
+          <div className="flex items-center justify-between pt-1">
+            <span className="text-[11px] uppercase font-bold text-neutral-400 flex items-center gap-1.5">
+              <Layers className="w-3.5 h-3.5 text-lime-400" /> Programa Seleccionado:
+            </span>
+            <button
+              onClick={() => setIsCreatingProgram(true)}
+              className="text-xs font-bold text-lime-400 flex items-center gap-1 hover:underline"
+            >
+              <FolderPlus className="w-3.5 h-3.5" /> + Nueva Rutina
+            </button>
           </div>
 
-          {/* BOTÓN DESTACADO: CREAR RUTINA PERSONALIZADA */}
-          <button
-            onClick={() => setIsCreatingRoutine(true)}
-            className="w-full py-3.5 bg-neutral-900 hover:bg-neutral-800 border-2 border-dashed border-lime-400/50 hover:border-lime-400 rounded-2xl text-xs font-extrabold text-lime-400 flex items-center justify-center gap-2 shadow-lg transition"
-          >
-            <PlusCircle className="w-4 h-4" /> + Crear Nueva Rutina / Sesión
-          </button>
+          {/* Selector desplegable o botones de Programas */}
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+            {programsList.map((prog) => (
+              <button
+                key={prog.id}
+                onClick={() => {
+                  setSelectedProgramId(prog.id)
+                  setActiveDayIndex(0)
+                }}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition border ${
+                  selectedProgramId === prog.id
+                    ? 'bg-lime-400 text-neutral-950 border-lime-400 shadow-md'
+                    : 'bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-white'
+                }`}
+              >
+                {prog.name} ({prog.days.length} días)
+              </button>
+            ))}
+          </div>
 
-          {/* Selector de Pestañas: Mi División 5 Días vs Personalizadas */}
-          <div>
-            <div className="grid grid-cols-2 gap-2 p-1 bg-neutral-900 border border-neutral-800 rounded-2xl mb-4">
-              {(['Mi División (5 Días)', 'Personalizadas'] as const).map((split) => (
-                <button
-                  key={split}
-                  onClick={() => {
-                    setSelectedSplitTab(split)
-                    setExpandedRoutineId(
-                      split === 'Mi División (5 Días)' ? 'split-d1-torso-a' : customRoutinesList[0]?.id || null
-                    )
-                  }}
-                  className={`py-2 rounded-xl text-xs font-bold transition ${
-                    selectedSplitTab === split
-                      ? 'bg-lime-400 text-neutral-950 shadow-md shadow-lime-400/20'
-                      : 'text-neutral-400 hover:text-white'
-                  }`}
-                >
-                  {split} {split === 'Personalizadas' && customRoutinesList.length > 0 && `(${customRoutinesList.length})`}
-                </button>
-              ))}
-            </div>
-
-            {/* Tarjetas de Rutinas */}
-            <div className="space-y-3.5">
-              {currentDisplayTemplates.length === 0 ? (
-                <div className="text-center py-8 bg-neutral-900/50 border border-neutral-800 rounded-2xl p-4">
-                  <p className="text-xs text-neutral-400">Aún no has creado rutinas personalizadas.</p>
-                  <button
-                    onClick={() => setIsCreatingRoutine(true)}
-                    className="mt-2 text-xs text-lime-400 font-bold underline"
-                  >
-                    Crear mi primera rutina ahora
-                  </button>
+          {/* ================= 2. DÍAS DIVIDIDOS DENTRO DEL PROGRAMA ================= */}
+          {currentProgram && (
+            <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-4 shadow-xl space-y-4">
+              <div className="flex items-center justify-between border-b border-neutral-800 pb-2.5">
+                <div>
+                  <h2 className="text-base font-extrabold text-white">{currentProgram.name}</h2>
+                  <p className="text-[11px] text-neutral-400">{currentProgram.description}</p>
                 </div>
-              ) : (
-                currentDisplayTemplates.map((routine) => {
-                  const isExpanded = expandedRoutineId === routine.id
 
-                  return (
-                    <div
-                      key={routine.id}
-                      className={`bg-neutral-900 border rounded-2xl p-4 transition shadow-xl ${
-                        isExpanded ? 'border-lime-400/50' : 'border-neutral-800'
-                      }`}
-                    >
-                      <div
-                        onClick={() => setExpandedRoutineId(isExpanded ? null : routine.id)}
-                        className="cursor-pointer"
+                <button
+                  onClick={() => {
+                    setNewDayBadge(`Día ${currentProgram.days.length + 1}`)
+                    setIsAddingDay(true)
+                  }}
+                  className="px-2.5 py-1.5 bg-neutral-950 border border-neutral-700 hover:border-lime-400 text-lime-400 rounded-xl text-xs font-bold flex items-center gap-1 transition"
+                >
+                  <Plus className="w-3 h-3" /> Añadir Día
+                </button>
+              </div>
+
+              {/* Botonera de Días (Día 1, Día 2, Día 3...) */}
+              {currentProgram.days.length > 0 ? (
+                <>
+                  <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+                    {currentProgram.days.map((day, idx) => (
+                      <button
+                        key={day.id}
+                        onClick={() => setActiveDayIndex(idx)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition border ${
+                          activeDayIndex === idx
+                            ? 'bg-neutral-950 border-lime-400 text-lime-400'
+                            : 'bg-neutral-950/60 border-neutral-800 text-neutral-500 hover:text-neutral-300'
+                        }`}
                       >
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-[10px] uppercase font-extrabold tracking-wider px-2.5 py-0.5 rounded-full bg-lime-400/15 text-lime-400 border border-lime-400/30">
-                            {routine.dayBadge}
-                          </span>
-                          <span className="text-xs text-neutral-400 font-mono flex items-center gap-1">
-                            <Clock className="w-3 h-3 text-lime-400" /> {routine.estimatedDuration}
-                          </span>
-                        </div>
+                        {day.dayBadge}
+                      </button>
+                    ))}
+                  </div>
 
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h3 className="text-base font-extrabold text-white">{routine.title}</h3>
-                            <p className="text-xs text-neutral-400 mt-0.5">{routine.subtitle}</p>
-                          </div>
-                          <ChevronRight
-                            className={`w-5 h-5 text-neutral-400 shrink-0 ml-2 transition-transform ${
-                              isExpanded ? 'rotate-90 text-lime-400' : ''
-                            }`}
-                          />
+                  {/* Tarjeta del Día Seleccionado con sus Ejercicios */}
+                  {currentDay && (
+                    <div className="bg-neutral-950 border border-neutral-800/80 rounded-2xl p-3.5 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-[10px] uppercase font-extrabold tracking-wider px-2 py-0.5 rounded-full bg-lime-400/15 text-lime-400 border border-lime-400/30">
+                            {currentDay.dayBadge}
+                          </span>
+                          <h3 className="text-sm font-extrabold text-white mt-1">{currentDay.title}</h3>
+                          <p className="text-[11px] text-neutral-400">{currentDay.subtitle}</p>
                         </div>
+                        <span className="text-xs text-neutral-400 font-mono flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-lime-400" /> {currentDay.estimatedDuration}
+                        </span>
                       </div>
 
-                      {isExpanded && (
-                        <div className="mt-4 pt-3.5 border-t border-neutral-800 space-y-2.5">
-                          {routine.items.map((item, idx) => {
-                            const exInfo =
-                              catalog.find((c) => c.id === item.exerciseId) ||
-                              ANATOMICAL_EXERCISES.find((c) => c.id === item.exerciseId)
+                      {/* Lista de ejercicios del día */}
+                      <div className="space-y-2 pt-1 border-t border-neutral-800/80">
+                        {currentDay.items.map((item, idx) => {
+                          const exInfo =
+                            catalog.find((c) => c.id === item.exerciseId) ||
+                            ANATOMICAL_EXERCISES.find((c) => c.id === item.exerciseId)
 
-                            if (!exInfo) return null
+                          if (!exInfo) return null
 
-                            return (
-                              <div
-                                key={idx}
-                                onClick={() => setSelectedPreview(exInfo)}
-                                className="flex items-center justify-between bg-neutral-950/90 border border-neutral-800/80 p-2 rounded-xl cursor-pointer"
-                              >
-                                <div className="flex items-center gap-2.5 min-w-0">
-                                  <div className="w-11 h-12 rounded-lg bg-white p-0.5 border border-neutral-700 shrink-0 overflow-hidden">
-                                    <AnatomicalImage
-                                      src={exInfo.anatomical_image_url}
-                                      alt={exInfo.name}
-                                      targetMuscle={exInfo.target_muscle}
-                                      className="w-full h-full object-contain"
-                                    />
-                                  </div>
-                                  <div className="min-w-0">
-                                    <div className="text-xs font-bold text-white truncate">{idx + 1}. {exInfo.name}</div>
-                                    <div className="text-[11px] text-lime-400 font-medium truncate">{exInfo.target_muscle}</div>
-                                  </div>
+                          return (
+                            <div
+                              key={idx}
+                              onClick={() => setSelectedPreview(exInfo)}
+                              className="flex items-center justify-between bg-neutral-900 border border-neutral-800 p-2 rounded-xl cursor-pointer"
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="w-10 h-11 rounded-lg bg-white p-0.5 border border-neutral-700 shrink-0 overflow-hidden">
+                                  <AnatomicalImage
+                                    src={exInfo.anatomical_image_url}
+                                    alt={exInfo.name}
+                                    targetMuscle={exInfo.target_muscle}
+                                    className="w-full h-full object-contain"
+                                  />
                                 </div>
-
-                                <div className="text-right shrink-0 ml-2">
-                                  <span className="text-xs font-mono font-bold text-white block">
-                                    {item.setsCount} × {item.defaultReps}
-                                  </span>
-                                  <span className="text-[10px] font-mono text-neutral-400">
-                                    {item.defaultWeight} kg
-                                  </span>
+                                <div className="min-w-0">
+                                  <div className="text-xs font-bold text-white truncate">
+                                    {idx + 1}. {exInfo.name}
+                                  </div>
+                                  <div className="text-[10px] text-lime-400 truncate">
+                                    {exInfo.target_muscle}
+                                  </div>
                                 </div>
                               </div>
-                            )
-                          })}
 
-                          <button
-                            onClick={() => handleStartRoutineTemplate(routine)}
-                            className="w-full mt-2 py-3 bg-lime-400 hover:bg-lime-300 text-neutral-950 font-extrabold text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-2"
-                          >
-                            <Play className="w-4 h-4 fill-neutral-950" /> Iniciar {routine.title}
-                          </button>
-                        </div>
-                      )}
+                              <div className="text-right shrink-0 ml-2">
+                                <span className="text-xs font-mono font-bold text-white block">
+                                  {item.setsCount} × {item.defaultReps}
+                                </span>
+                                <span className="text-[10px] font-mono text-neutral-400">
+                                  {item.defaultWeight} kg
+                                </span>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+
+                      <button
+                        onClick={() => handleStartDay(currentDay)}
+                        className="w-full mt-2 py-3 bg-lime-400 hover:bg-lime-300 text-neutral-950 font-extrabold text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-2"
+                      >
+                        <Play className="w-4 h-4 fill-neutral-950" /> Iniciar {currentDay.title}
+                      </button>
                     </div>
-                  )
-                })
+                  )}
+                </>
+              ) : (
+                <div className="text-center py-6 bg-neutral-950 rounded-2xl p-4">
+                  <p className="text-xs text-neutral-400">Esta rutina no tiene días configurados aún.</p>
+                  <button
+                    onClick={() => {
+                      setNewDayBadge('Día 1')
+                      setIsAddingDay(true)
+                    }}
+                    className="mt-2 text-xs text-lime-400 font-bold underline"
+                  >
+                    + Añadir el primer día (ej. Torso A)
+                  </button>
+                </div>
               )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ================= MODAL: CREAR NUEVA RUTINA / PROGRAMA ================= */}
+      {isCreatingProgram && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-3xl p-5 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
+              <h3 className="text-base font-extrabold text-white flex items-center gap-1.5">
+                <FolderPlus className="w-4 h-4 text-lime-400" /> Crear Nueva Rutina
+              </h3>
+              <button onClick={() => setIsCreatingProgram(false)} className="p-1 bg-neutral-950 rounded-lg text-neutral-400">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div>
+              <label className="text-xs text-neutral-400 block mb-1">Nombre del Programa / Rutina *</label>
+              <input
+                type="text"
+                placeholder="Ej. Rutina 1, Hipertrofia 5 Días..."
+                value={newProgramName}
+                onChange={(e) => setNewProgramName(e.target.value)}
+                className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-lime-400"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs text-neutral-400 block mb-1">Descripción corta (Opcional)</label>
+              <input
+                type="text"
+                placeholder="Ej. Torso/Pierna/Brazos"
+                value={newProgramDesc}
+                onChange={(e) => setNewProgramDesc(e.target.value)}
+                className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-lime-400"
+              />
+            </div>
+
+            <div className="pt-2 flex gap-2">
+              <button
+                onClick={handleCreateProgram}
+                className="flex-1 py-2.5 bg-lime-400 text-neutral-950 font-bold text-xs rounded-xl"
+              >
+                Crear Rutina
+              </button>
+              <button
+                onClick={() => setIsCreatingProgram(false)}
+                className="px-4 py-2.5 bg-neutral-800 text-neutral-300 text-xs rounded-xl"
+              >
+                Cancelar
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ================= MODAL: CREADOR DE RUTINAS ================= */}
-      {isCreatingRoutine && (
+      {/* ================= MODAL: AÑADIR DÍA DIVIDIDO A LA RUTINA ================= */}
+      {isAddingDay && (
         <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-3xl p-5 shadow-2xl max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
               <h3 className="text-base font-extrabold text-white flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-lime-400" /> Crear Rutina Propia
+                <Sparkles className="w-4 h-4 text-lime-400" /> Añadir Día a {currentProgram?.name}
               </h3>
-              <button
-                onClick={() => setIsCreatingRoutine(false)}
-                className="p-1 bg-neutral-950 rounded-lg text-neutral-400"
-              >
+              <button onClick={() => setIsAddingDay(false)} className="p-1 bg-neutral-950 rounded-lg text-neutral-400">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="overflow-y-auto py-3 space-y-3 flex-1 pr-1">
-              <div>
-                <label className="text-xs text-neutral-400 block mb-1">Nombre de la Rutina *</label>
-                <input
-                  type="text"
-                  placeholder="Ej. Torso A, Pierna y Brazos..."
-                  value={newRoutineTitle}
-                  onChange={(e) => setNewRoutineTitle(e.target.value)}
-                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-lime-400"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-span-1">
                   <label className="text-xs text-neutral-400 block mb-1">Etiqueta</label>
                   <input
                     type="text"
-                    placeholder="Ej. Día 1 • Torso"
-                    value={newRoutineBadge}
-                    onChange={(e) => setNewRoutineBadge(e.target.value)}
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-lime-400"
+                    value={newDayBadge}
+                    onChange={(e) => setNewDayBadge(e.target.value)}
+                    placeholder="Día 1"
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-lime-400"
                   />
                 </div>
-                <div>
-                  <label className="text-xs text-neutral-400 block mb-1">Subtítulo (Opcional)</label>
+                <div className="col-span-2">
+                  <label className="text-xs text-neutral-400 block mb-1">Nombre del Día *</label>
                   <input
                     type="text"
-                    placeholder="Ej. Énfasis en brazos"
-                    value={newRoutineSubtitle}
-                    onChange={(e) => setNewRoutineSubtitle(e.target.value)}
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-lime-400"
+                    value={newDayTitle}
+                    onChange={(e) => setNewDayTitle(e.target.value)}
+                    placeholder="Ej. Torso A, Pierna..."
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-lime-400"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-neutral-400 block mb-1">Subtítulo / Músculos</label>
+                <input
+                  type="text"
+                  value={newDaySubtitle}
+                  onChange={(e) => setNewDaySubtitle(e.target.value)}
+                  placeholder="Ej. Espalda, Pecho y Brazos"
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-lime-400"
+                />
               </div>
 
               <div>
                 <label className="text-xs text-neutral-300 font-bold block mb-1.5">
-                  Selecciona los ejercicios ({selectedExerciseIds.length} elegidos):
+                  Selecciona los ejercicios ({selectedExerciseIds.length} seleccionados):
                 </label>
-                <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
+                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
                   {catalog.map((ex) => {
                     const isSelected = selectedExerciseIds.includes(ex.id)
                     return (
                       <div
                         key={ex.id}
-                        onClick={() => toggleSelectExerciseForRoutine(ex.id)}
+                        onClick={() => toggleSelectExercise(ex.id)}
                         className={`p-2 rounded-xl border flex items-center justify-between cursor-pointer transition text-xs ${
                           isSelected
                             ? 'bg-lime-400/15 border-lime-400/60 text-white'
@@ -1424,15 +1470,12 @@ export default function ActiveWorkoutPage() {
 
             <div className="pt-3 border-t border-neutral-800 flex gap-2">
               <button
-                onClick={handleSaveCustomRoutine}
-                className="flex-1 py-2.5 bg-lime-400 hover:bg-lime-300 text-neutral-950 font-bold text-xs rounded-xl transition"
+                onClick={handleAddDayToCurrentProgram}
+                className="flex-1 py-2.5 bg-lime-400 text-neutral-950 font-bold text-xs rounded-xl"
               >
-                Guardar Rutina
+                Guardar Día en {currentProgram?.name}
               </button>
-              <button
-                onClick={() => setIsCreatingRoutine(false)}
-                className="px-4 py-2.5 bg-neutral-800 text-neutral-300 text-xs rounded-xl"
-              >
+              <button onClick={() => setIsAddingDay(false)} className="px-4 py-2.5 bg-neutral-800 text-neutral-300 text-xs rounded-xl">
                 Cancelar
               </button>
             </div>
@@ -1568,7 +1611,12 @@ export default function ActiveWorkoutPage() {
                             onChange={(e) => {
                               const val = e.target.value
                               if (/^\d*\.?\d*$/.test(val)) {
-                                updateSetValue(ex.id, set.id, 'weight', val === '' ? 0 : Number(val))
+                                updateSetValue(
+                                  ex.id,
+                                  set.id,
+                                  'weight',
+                                  val === '' ? 0 : Number(val)
+                                )
                               }
                             }}
                             className="w-full bg-neutral-900 border border-neutral-700 rounded-lg py-1.5 text-center text-sm font-semibold focus:outline-none focus:border-lime-400"
@@ -1586,7 +1634,12 @@ export default function ActiveWorkoutPage() {
                             onChange={(e) => {
                               const val = e.target.value
                               if (/^\d*$/.test(val)) {
-                                updateSetValue(ex.id, set.id, 'reps', val === '' ? 0 : Number(val))
+                                updateSetValue(
+                                  ex.id,
+                                  set.id,
+                                  'reps',
+                                  val === '' ? 0 : Number(val)
+                                )
                               }
                             }}
                             className="w-full bg-neutral-900 border border-neutral-700 rounded-lg py-1.5 text-center text-sm font-semibold focus:outline-none focus:border-lime-400"
@@ -1604,7 +1657,12 @@ export default function ActiveWorkoutPage() {
                             onChange={(e) => {
                               const val = e.target.value
                               if (/^\d*$/.test(val)) {
-                                updateSetValue(ex.id, set.id, 'rir', val === '' ? 0 : Number(val))
+                                updateSetValue(
+                                  ex.id,
+                                  set.id,
+                                  'rir',
+                                  val === '' ? 0 : Number(val)
+                                )
                               }
                             }}
                             className="w-full bg-neutral-900 border border-neutral-700 rounded-lg py-1.5 text-center text-sm font-semibold focus:outline-none focus:border-lime-400"
