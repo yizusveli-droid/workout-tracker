@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import {
   Play,
   Pause,
@@ -110,6 +110,7 @@ const VERIFIED_MUSCLE_GIFS: Record<string, string> = {
     'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Romanian-Deadlift.gif',
   Glúteos: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Hip-Thrust.gif',
   Gemelos: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Standing-Calf-Raise.gif',
+  Abdomen: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Pushdown.gif',
 }
 
 function getVerifiedFallbackByMuscle(targetMuscle: string, exerciseName: string): string {
@@ -225,17 +226,16 @@ function AnatomicalImage({
   )
 }
 
-// CATÁLOGO COMPLETO RESTAURADO (ESPALDA, PECHO, HOMBROS, BRAZOS, PIERNAS)
+// CATÁLOGO EXTENDIDO Y COMPLETO CON MÁS DE 50 EJERCICIOS
 const ANATOMICAL_EXERCISES: CatalogExercise[] = [
   // ==================== ESPALDA ====================
   {
     id: 'e1',
     name: 'Dominadas en barra (Pull-ups / Lastre)',
     target_muscle: 'Espalda (Dorsales)',
-    secondary_muscle: 'Bíceps, Redondo Mayor, Core',
+    secondary_muscle: 'Bíceps, Redondo Mayor',
     equipment: 'Corporal / Lastre',
-    anatomical_image_url:
-      'https://fitcron.com/wp-content/uploads/2021/04/18661301-Wide-Grip-Pull-Up-on-Dip-Cage_Back_720.gif',
+    anatomical_image_url: 'https://fitcron.com/wp-content/uploads/2021/04/18661301-Wide-Grip-Pull-Up-on-Dip-Cage_Back_720.gif',
   },
   {
     id: 'e2',
@@ -243,8 +243,7 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     target_muscle: 'Espalda (Dorsal Ancho)',
     secondary_muscle: 'Bíceps, Braquial',
     equipment: 'Corporal / Lastre',
-    anatomical_image_url:
-      'https://louismove.com/wp-content/uploads/2023/05/18651101-Hammer-Grip-Pull-up-on-Dip-Cage_Back_medium.png',
+    anatomical_image_url: 'https://louismove.com/wp-content/uploads/2023/05/18651101-Hammer-Grip-Pull-up-on-Dip-Cage_Back_medium.png',
   },
   {
     id: 'e3',
@@ -252,8 +251,7 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     target_muscle: 'Espalda (Densidad Media y Dorsal)',
     secondary_muscle: 'Romboides, Trapecio Medio, Bíceps',
     equipment: 'Barra / Máquina',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Lever-T-bar-Row.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Lever-T-bar-Row.gif',
   },
   {
     id: 'e4',
@@ -261,17 +259,15 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     target_muscle: 'Espalda (Dorsal Ancho Iliaco)',
     secondary_muscle: 'Bíceps, Redondo Mayor',
     equipment: 'Polea',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Lat-Pulldown.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Lat-Pulldown.gif',
   },
   {
     id: 'e5',
-    name: 'Jalón al pecho en polea alta',
+    name: 'Jalón al pecho en polea alta (Agarre prono)',
     target_muscle: 'Espalda (Dorsal Ancho)',
     secondary_muscle: 'Bíceps, Trapecio Inferior',
     equipment: 'Polea',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Lat-Pulldown.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Lat-Pulldown.gif',
   },
   {
     id: 'e6',
@@ -279,8 +275,7 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     target_muscle: 'Espalda (Media y Dorsal)',
     secondary_muscle: 'Romboides, Erectores Espinales',
     equipment: 'Barra',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Bent-Over-Row.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Bent-Over-Row.gif',
   },
   {
     id: 'e7',
@@ -288,8 +283,7 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     target_muscle: 'Espalda (Dorsal y Redondo)',
     secondary_muscle: 'Bíceps, Deltoides Posterior',
     equipment: 'Mancuerna',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Row.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Row.gif',
   },
   {
     id: 'e8',
@@ -297,8 +291,7 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     target_muscle: 'Espalda (Media y Dorsal)',
     secondary_muscle: 'Romboides, Bíceps',
     equipment: 'Polea',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Seated-Cable-Row.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Seated-Cable-Row.gif',
   },
   {
     id: 'e9',
@@ -306,8 +299,7 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     target_muscle: 'Espalda (Aislamiento Dorsal Ancho)',
     secondary_muscle: 'Redondo Mayor, Tríceps',
     equipment: 'Polea',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Lat-Pulldown.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Lat-Pulldown.gif',
   },
   {
     id: 'e10',
@@ -315,8 +307,23 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     target_muscle: 'Cadena Posterior y Espalda',
     secondary_muscle: 'Glúteos, Isquiosurales, Trapecio',
     equipment: 'Barra',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Deadlift.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Deadlift.gif',
+  },
+  {
+    id: 'e11',
+    name: 'Remo en máquina con apoyo en el pecho',
+    target_muscle: 'Espalda (Zona Media y Trapecio)',
+    secondary_muscle: 'Romboides, Bíceps',
+    equipment: 'Máquina',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Lever-T-bar-Row.gif',
+  },
+  {
+    id: 'e12',
+    name: 'Encogimientos con mancuernas / barra',
+    target_muscle: 'Espalda (Trapecio Superior)',
+    secondary_muscle: 'Antebrazos',
+    equipment: 'Mancuerna',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Bent-Over-Row.gif',
   },
 
   // ==================== PECHO ====================
@@ -326,8 +333,7 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     target_muscle: 'Pecho (Pectoral Mayor Esternal)',
     secondary_muscle: 'Tríceps, Deltoides Anterior',
     equipment: 'Barra',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Bench-Press.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Bench-Press.gif',
   },
   {
     id: 'p2',
@@ -335,8 +341,7 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     target_muscle: 'Pecho (Haz Clavicular / Superior)',
     secondary_muscle: 'Deltoides Anterior, Tríceps',
     equipment: 'Mancuerna',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Incline-Dumbbell-Press.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Incline-Dumbbell-Press.gif',
   },
   {
     id: 'p3',
@@ -344,8 +349,7 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     target_muscle: 'Pecho (Pectoral Mayor)',
     secondary_muscle: 'Tríceps, Deltoides Anterior',
     equipment: 'Mancuerna',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Press.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Press.gif',
   },
   {
     id: 'p4',
@@ -353,8 +357,7 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     target_muscle: 'Pecho (Pectoral Superior)',
     secondary_muscle: 'Deltoides Anterior, Tríceps',
     equipment: 'Barra',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Incline-Dumbbell-Press.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Incline-Dumbbell-Press.gif',
   },
   {
     id: 'p5',
@@ -362,8 +365,7 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     target_muscle: 'Pecho (Aislamiento Pectoral)',
     secondary_muscle: 'Deltoides Anterior',
     equipment: 'Máquina',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Pec-Deck-Fly.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Pec-Deck-Fly.gif',
   },
   {
     id: 'p6',
@@ -371,17 +373,31 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     target_muscle: 'Pecho (Fibras Costales e Inferiores)',
     secondary_muscle: 'Deltoides Anterior',
     equipment: 'Polea',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Cable-Crossover.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Cable-Crossover.gif',
   },
   {
     id: 'p7',
+    name: 'Cruces en polea baja a alta (Haz clavicular)',
+    target_muscle: 'Pecho (Pectoral Superior)',
+    secondary_muscle: 'Deltoides Anterior',
+    equipment: 'Polea',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Cable-Crossover.gif',
+  },
+  {
+    id: 'p8',
     name: 'Fondos en paralelas (Enfoque Pectoral)',
     target_muscle: 'Pecho (Pectoral Inferior)',
     secondary_muscle: 'Tríceps, Deltoides Anterior',
     equipment: 'Corporal / Lastre',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Chest-Dips.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Chest-Dips.gif',
+  },
+  {
+    id: 'p9',
+    name: 'Press declinado con barra / mancuernas',
+    target_muscle: 'Pecho (Pectoral Inferior)',
+    secondary_muscle: 'Tríceps',
+    equipment: 'Barra',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Bench-Press.gif',
   },
 
   // ==================== HOMBROS ====================
@@ -391,8 +407,7 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     target_muscle: 'Hombros (Deltoides Lateral)',
     secondary_muscle: 'Supraespinoso, Trapecio Superior',
     equipment: 'Mancuerna',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Lateral-Raise.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Lateral-Raise.gif',
   },
   {
     id: 'h2',
@@ -400,8 +415,7 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     target_muscle: 'Hombros (Deltoides Lateral)',
     secondary_muscle: 'Trapecio',
     equipment: 'Mancuerna',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Lateral-Raise.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Lateral-Raise.gif',
   },
   {
     id: 'h3',
@@ -409,8 +423,7 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     target_muscle: 'Hombros (Deltoides Lateral Constante)',
     secondary_muscle: 'Supraespinoso',
     equipment: 'Polea',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Lateral-Raise.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Lateral-Raise.gif',
   },
   {
     id: 'h4',
@@ -418,8 +431,7 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     target_muscle: 'Hombros (Deltoides Anterior y Medio)',
     secondary_muscle: 'Tríceps, Core, Trapecio',
     equipment: 'Barra',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Military-Press.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Military-Press.gif',
   },
   {
     id: 'h5',
@@ -427,8 +439,7 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     target_muscle: 'Hombros (Deltoides Anterior)',
     secondary_muscle: 'Tríceps, Deltoides Lateral',
     equipment: 'Mancuerna',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Shoulder-Press.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Shoulder-Press.gif',
   },
   {
     id: 'h6',
@@ -436,19 +447,25 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     target_muscle: 'Hombros (Deltoides Posterior y Manguito)',
     secondary_muscle: 'Trapecio Medio, Romboides',
     equipment: 'Polea',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Face-Pull.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Face-Pull.gif',
+  },
+  {
+    id: 'h7',
+    name: 'Pájaros con mancuernas / peck deck inverso',
+    target_muscle: 'Hombros (Deltoides Posterior)',
+    secondary_muscle: 'Romboides',
+    equipment: 'Mancuerna',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Face-Pull.gif',
   },
 
-  // ==================== BRAZOS ====================
+  // ==================== BRAZOS (BÍCEPS Y TRÍCEPS) ====================
   {
     id: 'b1',
     name: 'Predicador con barra Z (Banco Scott)',
     target_muscle: 'Brazos (Bíceps Cabeza Corta y Braquial)',
     secondary_muscle: 'Supinador Largo',
     equipment: 'Barra Z',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Z-Bar-Preacher-Curl.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Z-Bar-Preacher-Curl.gif',
   },
   {
     id: 'b2',
@@ -456,8 +473,7 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     target_muscle: 'Brazos (Bíceps Braquial)',
     secondary_muscle: 'Braquial Anterior, Antebrazo',
     equipment: 'Barra Z',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Curl.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Curl.gif',
   },
   {
     id: 'b3',
@@ -465,8 +481,7 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     target_muscle: 'Brazos (Bíceps Cabeza Larga)',
     secondary_muscle: 'Braquial',
     equipment: 'Mancuerna',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Curl.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Curl.gif',
   },
   {
     id: 'b4',
@@ -474,8 +489,23 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     target_muscle: 'Brazos (Braquial y Braquiorradial)',
     secondary_muscle: 'Bíceps Braquial',
     equipment: 'Mancuerna',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Hammer-Curl.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Hammer-Curl.gif',
+  },
+  {
+    id: 'b5',
+    name: 'Curl en polea baja (Bayesian curl)',
+    target_muscle: 'Brazos (Bíceps en máximo estiramiento)',
+    secondary_muscle: 'Antebrazo',
+    equipment: 'Polea',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Hammer-Curl.gif',
+  },
+  {
+    id: 'b6',
+    name: 'Curl spider en banco inclinado',
+    target_muscle: 'Brazos (Bíceps Cabeza Corta)',
+    secondary_muscle: 'Braquial',
+    equipment: 'Barra Z',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Curl.gif',
   },
   {
     id: 't1',
@@ -483,8 +513,7 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     target_muscle: 'Brazos (Tríceps Cabeza Larga)',
     secondary_muscle: 'Cabeza Lateral y Medial',
     equipment: 'Polea',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Pushdown.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Pushdown.gif',
   },
   {
     id: 't2',
@@ -492,8 +521,7 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     target_muscle: 'Brazos (Tríceps Cabeza Lateral y Medial)',
     secondary_muscle: 'Ancóneo',
     equipment: 'Polea',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Pushdown.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Pushdown.gif',
   },
   {
     id: 't3',
@@ -501,8 +529,23 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     target_muscle: 'Brazos (Tríceps Completo)',
     secondary_muscle: 'Antebrazo',
     equipment: 'Barra Z',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Chest-Dips.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Chest-Dips.gif',
+  },
+  {
+    id: 't4',
+    name: 'Fondos entre bancos / Fondos paralelas tríceps',
+    target_muscle: 'Brazos (Tríceps)',
+    secondary_muscle: 'Pecho, Deltoides Anterior',
+    equipment: 'Corporal',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Chest-Dips.gif',
+  },
+  {
+    id: 't5',
+    name: 'Press cerrado de banca con barra',
+    target_muscle: 'Brazos (Tríceps Cabeza Medial y Lateral)',
+    secondary_muscle: 'Pectoral, Deltoides',
+    equipment: 'Barra',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Bench-Press.gif',
   },
 
   // ==================== PIERNAS Y GLÚTEOS ====================
@@ -512,8 +555,7 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     target_muscle: 'Cuádriceps (Vasto Lateral, Medial y Recto)',
     secondary_muscle: 'Glúteo Mayor, Aductores, Core',
     equipment: 'Barra',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/BARBELL-SQUAT.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/BARBELL-SQUAT.gif',
   },
   {
     id: 'c2',
@@ -521,17 +563,15 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     target_muscle: 'Cuádriceps',
     secondary_muscle: 'Glúteos, Isquiosurales',
     equipment: 'Máquina',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Leg-Press.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Leg-Press.gif',
   },
   {
     id: 'c3',
     name: 'Sentadilla Hack en máquina (Hack Squat)',
-    target_muscle: 'Cuádriceps',
+    target_muscle: 'Cuádriceps (Vastos)',
     secondary_muscle: 'Glúteos',
     equipment: 'Máquina',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Sled-Hack-Squat.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Sled-Hack-Squat.gif',
   },
   {
     id: 'c4',
@@ -539,8 +579,7 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     target_muscle: 'Cuádriceps (Recto Femoral y Vastos)',
     secondary_muscle: 'Articulación rodilla',
     equipment: 'Máquina',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/LEG-EXTENSION.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/LEG-EXTENSION.gif',
   },
   {
     id: 'c5',
@@ -548,8 +587,15 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     target_muscle: 'Cuádriceps y Glúteo Mayor',
     secondary_muscle: 'Aductores, Isquiosurales',
     equipment: 'Mancuerna',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Bulgarian-Split-Squat.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Bulgarian-Split-Squat.gif',
+  },
+  {
+    id: 'c6',
+    name: 'Zancadas caminando con mancuernas',
+    target_muscle: 'Cuádriceps y Glúteos',
+    secondary_muscle: 'Isquiosurales, Core',
+    equipment: 'Mancuerna',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Bulgarian-Split-Squat.gif',
   },
   {
     id: 'i1',
@@ -557,8 +603,7 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     target_muscle: 'Isquiosurales (Bíceps Femoral y Semitendinoso)',
     secondary_muscle: 'Glúteo Mayor, Erectores Espinales',
     equipment: 'Barra',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Romanian-Deadlift.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Romanian-Deadlift.gif',
   },
   {
     id: 'i2',
@@ -566,8 +611,7 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     target_muscle: 'Isquiosurales',
     secondary_muscle: 'Gemelos',
     equipment: 'Máquina',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Lying-Leg-Curl.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Lying-Leg-Curl.gif',
   },
   {
     id: 'i3',
@@ -575,8 +619,15 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     target_muscle: 'Isquiosurales (Máximo estiramiento)',
     secondary_muscle: 'Gemelos',
     equipment: 'Máquina',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Seated-Leg-Curl.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Seated-Leg-Curl.gif',
+  },
+  {
+    id: 'i4',
+    name: 'Peso muerto rumano unilateral con mancuernas',
+    target_muscle: 'Isquiosurales y Glúteo',
+    secondary_muscle: 'Estabilizadores de cadera',
+    equipment: 'Mancuerna',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Romanian-Deadlift.gif',
   },
   {
     id: 'g1',
@@ -584,8 +635,7 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     target_muscle: 'Glúteos (Glúteo Mayor)',
     secondary_muscle: 'Isquiosurales, Core',
     equipment: 'Barra',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Hip-Thrust.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Hip-Thrust.gif',
   },
   {
     id: 'g2',
@@ -593,8 +643,15 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     target_muscle: 'Glúteos (Glúteo Medio y Menor)',
     secondary_muscle: 'Tensor de la Fascia Lata',
     equipment: 'Máquina',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/HiP-ABDUCTION-MACHINE.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/HiP-ABDUCTION-MACHINE.gif',
+  },
+  {
+    id: 'g3',
+    name: 'Patada de glúteo en polea baja',
+    target_muscle: 'Glúteos (Glúteo Mayor)',
+    secondary_muscle: 'Isquiosurales',
+    equipment: 'Polea',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Hip-Thrust.gif',
   },
   {
     id: 'cal1',
@@ -602,8 +659,33 @@ const ANATOMICAL_EXERCISES: CatalogExercise[] = [
     target_muscle: 'Gemelos (Gastrocnemio)',
     secondary_muscle: 'Sóleo',
     equipment: 'Máquina',
-    anatomical_image_url:
-      'https://fitnessprogramer.com/wp-content/uploads/2021/02/Standing-Calf-Raise.gif',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Standing-Calf-Raise.gif',
+  },
+  {
+    id: 'cal2',
+    name: 'Elevación de talones sentado en máquina',
+    target_muscle: 'Gemelos (Sóleo)',
+    secondary_muscle: 'Gastrocnemio',
+    equipment: 'Máquina',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Lever-Seated-Calf-Raise.gif',
+  },
+
+  // ==================== CORE / ABDOMEN ====================
+  {
+    id: 'ab1',
+    name: 'Elevación de piernas colgado en barra',
+    target_muscle: 'Abdomen (Recto Abdominal Inferior)',
+    secondary_muscle: 'Flexores de cadera, Agarre',
+    equipment: 'Barra',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Pushdown.gif',
+  },
+  {
+    id: 'ab2',
+    name: 'Crunch en polea alta arrodillado',
+    target_muscle: 'Abdomen (Recto Abdominal Superior)',
+    secondary_muscle: 'Oblicuos',
+    equipment: 'Polea',
+    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Pushdown.gif',
   },
 ]
 
@@ -617,6 +699,7 @@ const MUSCLE_FILTER_OPTIONS = [
   'Isquiosurales',
   'Glúteos',
   'Gemelos',
+  'Abdomen',
 ]
 
 // DIVISIÓN BASE DE 5 DÍAS
@@ -716,18 +799,18 @@ export default function ActiveWorkoutPage() {
   const [selectedProgramId, setSelectedProgramId] = useState<string>(DEFAULT_5_DAY_PROGRAM.id)
   const [activeDayIndex, setActiveDayIndex] = useState<number>(0)
 
-  // Modales
+  // Modal crear programa
   const [isCreatingProgram, setIsCreatingProgram] = useState(false)
   const [newProgramName, setNewProgramName] = useState('')
   const [newProgramDesc, setNewProgramDesc] = useState('')
 
-  // Modal para agregar o editar un día
+  // Modal para agregar o editar un día con configuración manual de Series, Reps y Peso
   const [isDayModalOpen, setIsDayModalOpen] = useState(false)
   const [editingDayId, setEditingDayId] = useState<string | null>(null)
   const [modalDayBadge, setModalDayBadge] = useState('Día 1')
   const [modalDayTitle, setModalDayTitle] = useState('')
   const [modalDaySubtitle, setModalDaySubtitle] = useState('')
-  const [selectedExerciseIds, setSelectedExerciseIds] = useState<string[]>([])
+  const [modalItems, setModalItems] = useState<RoutineTemplateItem[]>([])
   const [modalMuscleFilter, setModalMuscleFilter] = useState('Todos')
   const [modalSearchQuery, setModalSearchQuery] = useState('')
 
@@ -752,6 +835,7 @@ export default function ActiveWorkoutPage() {
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [historyList, setHistoryList] = useState<PastWorkout[]>([])
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+  const historyLoadedRef = useRef(false)
 
   // Ejercicios activos
   const [exercises, setExercises] = useState<WorkoutExercise[]>([
@@ -790,7 +874,7 @@ export default function ActiveWorkoutPage() {
   // Cargar programas de localStorage
   useEffect(() => {
     try {
-      const savedProgs = localStorage.getItem('user_workout_programs_v3')
+      const savedProgs = localStorage.getItem('user_workout_programs_v4')
       if (savedProgs) {
         const parsed = JSON.parse(savedProgs)
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -806,7 +890,7 @@ export default function ActiveWorkoutPage() {
   const savePrograms = (newList: WorkoutProgram[]) => {
     setProgramsList(newList)
     try {
-      localStorage.setItem('user_workout_programs_v3', JSON.stringify(newList))
+      localStorage.setItem('user_workout_programs_v4', JSON.stringify(newList))
     } catch (e) {
       console.warn('Error guardando programas:', e)
     }
@@ -876,8 +960,10 @@ export default function ActiveWorkoutPage() {
     }
   }
 
-  const loadHistory = async () => {
+  // Cargar historial sin bucle ni parpadeos
+  const loadHistory = async (force = false) => {
     if (!user) return
+    if (historyLoadedRef.current && !force) return
     setIsLoadingHistory(true)
     try {
       const supabase = createClient()
@@ -891,6 +977,7 @@ export default function ActiveWorkoutPage() {
 
       if (data && !error) {
         setHistoryList(data)
+        historyLoadedRef.current = true
       }
     } catch (err) {
       console.warn('Aviso cargando historial:', err)
@@ -900,7 +987,7 @@ export default function ActiveWorkoutPage() {
   }
 
   useEffect(() => {
-    if (user && (activeTab === 'history' || activeTab === 'home')) {
+    if (user && activeTab === 'history') {
       loadHistory()
     }
   }, [activeTab, user])
@@ -1047,7 +1134,6 @@ export default function ActiveWorkoutPage() {
     setActiveTab('workout')
   }
 
-  // Crear nuevo programa
   const handleCreateProgram = () => {
     if (!newProgramName.trim()) {
       alert('Ingresa el nombre del programa.')
@@ -1076,25 +1162,24 @@ export default function ActiveWorkoutPage() {
     setModalDayBadge(`Día ${currentProgram?.days.length ? currentProgram.days.length + 1 : 1}`)
     setModalDayTitle('')
     setModalDaySubtitle('')
-    setSelectedExerciseIds([])
+    setModalItems([])
     setModalMuscleFilter('Todos')
     setModalSearchQuery('')
     setIsDayModalOpen(true)
   }
 
-  // Abrir modal para EDITAR día existente
+  // Abrir modal para EDITAR día
   const openEditDayModal = (day: ProgramDay) => {
     setEditingDayId(day.id)
     setModalDayBadge(day.dayBadge)
     setModalDayTitle(day.title)
     setModalDaySubtitle(day.subtitle)
-    setSelectedExerciseIds(day.items.map((i) => i.exerciseId))
+    setModalItems(JSON.parse(JSON.stringify(day.items)))
     setModalMuscleFilter('Todos')
     setModalSearchQuery('')
     setIsDayModalOpen(true)
   }
 
-  // Eliminar día
   const handleDeleteDay = (dayId: string) => {
     if (!confirm('¿Seguro que deseas eliminar este día?')) return
 
@@ -1112,32 +1197,48 @@ export default function ActiveWorkoutPage() {
     setActiveDayIndex(0)
   }
 
-  // Guardar día (sea nuevo o editado)
+  // Añadir o quitar ejercicio del modal
+  const toggleModalExercise = (exId: string) => {
+    const exists = modalItems.find((i) => i.exerciseId === exId)
+    if (exists) {
+      setModalItems(modalItems.filter((i) => i.exerciseId !== exId))
+    } else {
+      setModalItems([
+        ...modalItems,
+        {
+          exerciseId: exId,
+          setsCount: 3,
+          defaultReps: 10,
+          defaultWeight: 40,
+          defaultRir: 1,
+          note: '',
+        },
+      ])
+    }
+  }
+
+  // Actualizar series, reps o peso en el modal de creación/edición
+  const updateModalItemField = (
+    exId: string,
+    field: 'setsCount' | 'defaultReps' | 'defaultWeight',
+    val: number
+  ) => {
+    setModalItems(
+      modalItems.map((item) =>
+        item.exerciseId === exId ? { ...item, [field]: val } : item
+      )
+    )
+  }
+
   const handleSaveDay = () => {
-    if (!modalDayTitle.trim() || selectedExerciseIds.length === 0) {
+    if (!modalDayTitle.trim() || modalItems.length === 0) {
       alert('Ingresa el nombre del día y selecciona al menos 1 ejercicio.')
       return
     }
 
-    const items: RoutineTemplateItem[] = selectedExerciseIds.map((exId) => {
-      // Si ya existía en el día, conservar pesos previos
-      const existingItem = currentDay?.items.find((i) => i.exerciseId === exId)
-      return (
-        existingItem || {
-          exerciseId: exId,
-          setsCount: 3,
-          defaultWeight: 40,
-          defaultReps: 10,
-          defaultRir: 1,
-          note: 'Serie efectiva',
-        }
-      )
-    })
-
     const updated = programsList.map((prog) => {
       if (prog.id === selectedProgramId) {
         if (editingDayId) {
-          // Editar día existente
           return {
             ...prog,
             days: prog.days.map((d) =>
@@ -1146,21 +1247,20 @@ export default function ActiveWorkoutPage() {
                     ...d,
                     dayBadge: modalDayBadge.trim(),
                     title: modalDayTitle.trim(),
-                    subtitle: modalDaySubtitle.trim() || `${selectedExerciseIds.length} ejercicios`,
-                    items,
+                    subtitle: modalDaySubtitle.trim() || `${modalItems.length} ejercicios`,
+                    items: modalItems,
                   }
                 : d
             ),
           }
         } else {
-          // Crear nuevo día
           const newDay: ProgramDay = {
             id: `day-${Date.now()}`,
             dayBadge: modalDayBadge.trim() || `Día ${prog.days.length + 1}`,
             title: modalDayTitle.trim(),
-            subtitle: modalDaySubtitle.trim() || `${selectedExerciseIds.length} ejercicios`,
+            subtitle: modalDaySubtitle.trim() || `${modalItems.length} ejercicios`,
             estimatedDuration: '60 min',
-            items,
+            items: modalItems,
           }
           return {
             ...prog,
@@ -1173,12 +1273,6 @@ export default function ActiveWorkoutPage() {
 
     savePrograms(updated)
     setIsDayModalOpen(false)
-  }
-
-  const toggleSelectExercise = (id: string) => {
-    setSelectedExerciseIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    )
   }
 
   const workoutStats = useMemo(() => {
@@ -1213,7 +1307,6 @@ export default function ActiveWorkoutPage() {
     return currentProgram.days[activeDayIndex] || currentProgram.days[0]
   }, [currentProgram, activeDayIndex])
 
-  // Ejercicios filtrados en el modal de selección
   const filteredModalExercises = useMemo(() => {
     return catalog.filter((ex) => {
       const matchesSearch =
@@ -1226,7 +1319,6 @@ export default function ActiveWorkoutPage() {
     })
   }, [catalog, modalSearchQuery, modalMuscleFilter])
 
-  // Ejercicios filtrados en la pestaña Biblioteca
   const filteredLibraryExercises = useMemo(() => {
     return catalog.filter((ex) => {
       const matchesSearch =
@@ -1288,7 +1380,7 @@ export default function ActiveWorkoutPage() {
       }
 
       setSaveSuccess(true)
-      await loadHistory()
+      await loadHistory(true)
     } catch (err: any) {
       alert('Error inesperado: ' + (err?.message || err))
     } finally {
@@ -1367,7 +1459,7 @@ export default function ActiveWorkoutPage() {
 
   return (
     <main className="min-h-screen bg-neutral-950 text-neutral-100 p-4 max-w-md mx-auto pb-28">
-      {/* ================= VISTA 0: INICIO (PROGRAMAS CON DÍAS DIVIDIDOS) ================= */}
+      {/* ================= VISTA 0: INICIO ================= */}
       {activeTab === 'home' && (
         <div className="space-y-4">
           <header className="flex items-center justify-between border-b border-neutral-800 pb-3">
@@ -1485,7 +1577,6 @@ export default function ActiveWorkoutPage() {
 
               {currentProgram.days.length > 0 ? (
                 <>
-                  {/* Selector horizontal de Días */}
                   <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
                     {currentProgram.days.map((day, idx) => (
                       <button
@@ -1502,7 +1593,6 @@ export default function ActiveWorkoutPage() {
                     ))}
                   </div>
 
-                  {/* Vista y acciones del día activo */}
                   {currentDay && (
                     <div className="bg-neutral-950 border border-neutral-800/80 rounded-2xl p-3.5 space-y-3">
                       <div className="flex items-start justify-between">
@@ -1519,7 +1609,6 @@ export default function ActiveWorkoutPage() {
                           <p className="text-[11px] text-neutral-400">{currentDay.subtitle}</p>
                         </div>
 
-                        {/* Botones de Editar y Borrar el día */}
                         <div className="flex items-center gap-1">
                           <button
                             onClick={() => openEditDayModal(currentDay)}
@@ -1538,7 +1627,6 @@ export default function ActiveWorkoutPage() {
                         </div>
                       </div>
 
-                      {/* Lista de ejercicios del día */}
                       <div className="space-y-2 pt-1 border-t border-neutral-800/80">
                         {currentDay.items.map((item, idx) => {
                           const exInfo =
@@ -1610,7 +1698,7 @@ export default function ActiveWorkoutPage() {
         </div>
       )}
 
-      {/* ================= MODAL: CREAR O EDITAR DÍA CON FILTROS Y BÚSQUEDA ================= */}
+      {/* ================= MODAL: CREAR O EDITAR DÍA CON SERIES/REPS/PESO PERSONALIZABLES ================= */}
       {isDayModalOpen && (
         <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-3xl p-5 shadow-2xl max-h-[92vh] flex flex-col">
@@ -1662,20 +1750,93 @@ export default function ActiveWorkoutPage() {
                 />
               </div>
 
-              {/* BARRA DE BÚSQUEDA Y FILTROS POR MÚSCULO DENTRO DEL MODAL */}
+              {/* SECCIÓN 1: AJUSTE DE SERIES, REPS Y PESO DE EJERCICIOS SELECCIONADOS */}
+              {modalItems.length > 0 && (
+                <div className="space-y-2 bg-neutral-950 p-3 rounded-2xl border border-neutral-800">
+                  <span className="text-[11px] font-bold text-lime-400 uppercase tracking-wider block">
+                    Configuración de Series ({modalItems.length} ejercicios):
+                  </span>
+                  <div className="space-y-2.5 max-h-48 overflow-y-auto pr-1">
+                    {modalItems.map((item) => {
+                      const ex = catalog.find((c) => c.id === item.exerciseId)
+                      return (
+                        <div key={item.exerciseId} className="bg-neutral-900 p-2.5 rounded-xl border border-neutral-800/80 space-y-1.5">
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs font-bold text-white truncate max-w-[190px]">
+                              {ex?.name || item.exerciseId}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => toggleModalExercise(item.exerciseId)}
+                              className="text-neutral-500 hover:text-red-400"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-2 text-center text-[10px] text-neutral-400">
+                            <div>
+                              <span className="block mb-0.5">Series</span>
+                              <input
+                                type="number"
+                                min="1"
+                                max="10"
+                                value={item.setsCount}
+                                onChange={(e) =>
+                                  updateModalItemField(item.exerciseId, 'setsCount', Number(e.target.value))
+                                }
+                                className="w-full bg-neutral-950 border border-neutral-700 rounded-lg py-1 text-center font-bold text-white text-xs focus:border-lime-400"
+                              />
+                            </div>
+                            <div>
+                              <span className="block mb-0.5">Reps</span>
+                              <input
+                                type="number"
+                                min="1"
+                                value={item.defaultReps}
+                                onChange={(e) =>
+                                  updateModalItemField(item.exerciseId, 'defaultReps', Number(e.target.value))
+                                }
+                                className="w-full bg-neutral-950 border border-neutral-700 rounded-lg py-1 text-center font-bold text-white text-xs focus:border-lime-400"
+                              />
+                            </div>
+                            <div>
+                              <span className="block mb-0.5">Kg Inicial</span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.5"
+                                value={item.defaultWeight}
+                                onChange={(e) =>
+                                  updateModalItemField(item.exerciseId, 'defaultWeight', Number(e.target.value))
+                                }
+                                className="w-full bg-neutral-950 border border-neutral-700 rounded-lg py-1 text-center font-bold text-lime-400 text-xs focus:border-lime-400"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* SECCIÓN 2: BUSCADOR Y FILTROS PARA AGREGAR MÁS EJERCICIOS */}
               <div className="space-y-1.5 pt-1">
+                <span className="text-xs font-bold text-neutral-300 block">
+                  Añadir ejercicios del catálogo:
+                </span>
                 <div className="relative">
                   <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-2.5" />
                   <input
                     type="text"
                     value={modalSearchQuery}
                     onChange={(e) => setModalSearchQuery(e.target.value)}
-                    placeholder="Buscar bíceps, banca, sentadilla..."
+                    placeholder="Buscar por ejercicio o músculo..."
                     className="w-full bg-neutral-950 border border-neutral-800 rounded-xl pl-8 pr-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-lime-400"
                   />
                 </div>
 
-                {/* Chips de filtro por músculo */}
                 <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-thin">
                   {MUSCLE_FILTER_OPTIONS.map((m) => (
                     <button
@@ -1694,39 +1855,34 @@ export default function ActiveWorkoutPage() {
                 </div>
               </div>
 
-              {/* Lista con los ejercicios del catálogo */}
-              <div>
-                <span className="text-xs font-bold text-neutral-300 block mb-1">
-                  Ejercicios ({selectedExerciseIds.length} seleccionados):
-                </span>
-                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                  {filteredModalExercises.map((ex) => {
-                    const isSelected = selectedExerciseIds.includes(ex.id)
-                    return (
+              {/* Lista para marcar o desmarcar con checkbox */}
+              <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                {filteredModalExercises.map((ex) => {
+                  const isSelected = modalItems.some((i) => i.exerciseId === ex.id)
+                  return (
+                    <div
+                      key={ex.id}
+                      onClick={() => toggleModalExercise(ex.id)}
+                      className={`p-2 rounded-xl border flex items-center justify-between cursor-pointer transition text-xs ${
+                        isSelected
+                          ? 'bg-lime-400/15 border-lime-400/60 text-white'
+                          : 'bg-neutral-950 border-neutral-800 text-neutral-300'
+                      }`}
+                    >
+                      <div className="truncate pr-2">
+                        <span className="font-bold block truncate">{ex.name}</span>
+                        <span className="text-[10px] text-lime-400">{ex.target_muscle}</span>
+                      </div>
                       <div
-                        key={ex.id}
-                        onClick={() => toggleSelectExercise(ex.id)}
-                        className={`p-2 rounded-xl border flex items-center justify-between cursor-pointer transition text-xs ${
-                          isSelected
-                            ? 'bg-lime-400/15 border-lime-400/60 text-white'
-                            : 'bg-neutral-950 border-neutral-800 text-neutral-300'
+                        className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 border ${
+                          isSelected ? 'bg-lime-400 border-lime-400 text-neutral-950' : 'border-neutral-700'
                         }`}
                       >
-                        <div className="truncate pr-2">
-                          <span className="font-bold block truncate">{ex.name}</span>
-                          <span className="text-[10px] text-lime-400">{ex.target_muscle}</span>
-                        </div>
-                        <div
-                          className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 border ${
-                            isSelected ? 'bg-lime-400 border-lime-400 text-neutral-950' : 'border-neutral-700'
-                          }`}
-                        >
-                          {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-                        </div>
+                        {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                       </div>
-                    )
-                  })}
-                </div>
+                    </div>
+                  )
+                })}
               </div>
             </div>
 
