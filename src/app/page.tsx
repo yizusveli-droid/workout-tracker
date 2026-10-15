@@ -30,8 +30,10 @@ import {
   FolderPlus,
   LogOut,
   Pencil,
+  ClipboardList,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { ANATOMICAL_EXERCISES, CatalogExercise } from '@/data/exercises'
 
 interface ExerciseSet {
   id: string
@@ -53,15 +55,6 @@ interface WorkoutExercise {
   previousBest?: string
   note?: string
   sets: ExerciseSet[]
-}
-
-interface CatalogExercise {
-  id: string
-  name: string
-  target_muscle: string
-  secondary_muscle?: string
-  equipment: string
-  anatomical_image_url: string
 }
 
 interface PastWorkout {
@@ -97,72 +90,6 @@ interface WorkoutProgram {
   days: ProgramDay[]
 }
 
-const VERIFIED_MUSCLE_GIFS: Record<string, string> = {
-  Espalda:
-    'https://fitcron.com/wp-content/uploads/2021/04/18661301-Wide-Grip-Pull-Up-on-Dip-Cage_Back_720.gif',
-  Pecho: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Bench-Press.gif',
-  Hombros: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Lateral-Raise.gif',
-  Bíceps: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Hammer-Curl.gif',
-  Tríceps: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Chest-Dips.gif',
-  Brazos: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Hammer-Curl.gif',
-  Cuádriceps: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/BARBELL-SQUAT.gif',
-  Isquiosurales:
-    'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Romanian-Deadlift.gif',
-  Glúteos: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Hip-Thrust.gif',
-  Gemelos: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Standing-Calf-Raise.gif',
-  Abdomen: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Pushdown.gif',
-}
-
-function getVerifiedFallbackByMuscle(targetMuscle: string, exerciseName: string): string {
-  const m = (targetMuscle + ' ' + exerciseName).toLowerCase()
-  if (
-    m.includes('trícep') ||
-    m.includes('tricep') ||
-    m.includes('francés') ||
-    m.includes('frances') ||
-    m.includes('extensión de tríceps')
-  ) {
-    return 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Pushdown.gif'
-  }
-  if (
-    m.includes('bícep') ||
-    m.includes('bicep') ||
-    m.includes('curl') ||
-    m.includes('predicador') ||
-    m.includes('brazo')
-  ) {
-    return 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Hammer-Curl.gif'
-  }
-  if (
-    m.includes('espalda') ||
-    m.includes('dorsal') ||
-    m.includes('remo') ||
-    m.includes('jalón') ||
-    m.includes('dominada')
-  ) {
-    return 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Lat-Pulldown.gif'
-  }
-  if (m.includes('pecho') || m.includes('pectoral') || m.includes('banca') || m.includes('apertura')) {
-    return 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Bench-Press.gif'
-  }
-  if (m.includes('hombro') || m.includes('deltoide') || m.includes('militar') || m.includes('lateral')) {
-    return 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Lateral-Raise.gif'
-  }
-  if (m.includes('isquio') || m.includes('femoral') || m.includes('rumano')) {
-    return 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Romanian-Deadlift.gif'
-  }
-  if (m.includes('glúteo') || m.includes('gluteo') || m.includes('hip thrust') || m.includes('abducció')) {
-    return 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Hip-Thrust.gif'
-  }
-  if (m.includes('gemelo') || m.includes('talón') || m.includes('talon') || m.includes('sóleo')) {
-    return 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Standing-Calf-Raise.gif'
-  }
-  if (m.includes('cuádricep') || m.includes('cuadricep') || m.includes('sentadilla') || m.includes('prensa')) {
-    return 'https://fitnessprogramer.com/wp-content/uploads/2021/02/BARBELL-SQUAT.gif'
-  }
-  return 'https://fitcron.com/wp-content/uploads/2021/04/18661301-Wide-Grip-Pull-Up-on-Dip-Cage_Back_720.gif'
-}
-
 function AnatomicalImage({
   src,
   alt,
@@ -184,22 +111,14 @@ function AnatomicalImage({
 
   const handleError = () => {
     if (fallbackStage === 0) {
-      const verified = getVerifiedFallbackByMuscle(targetMuscle, alt)
-      if (verified !== imgSrc) {
-        setImgSrc(verified)
-        setFallbackStage(1)
-        return
-      }
-    }
-    if (fallbackStage <= 1) {
-      setImgSrc('https://fitnessprogramer.com/wp-content/uploads/2021/02/Hammer-Curl.gif')
-      setFallbackStage(2)
+      setImgSrc('https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Bench-Press.gif')
+      setFallbackStage(1)
       return
     }
-    setFallbackStage(3)
+    setFallbackStage(2)
   }
 
-  if (fallbackStage === 3) {
+  if (fallbackStage === 2) {
     return (
       <svg viewBox="0 0 100 120" className="w-full h-full bg-white p-1">
         <circle cx="50" cy="20" r="10" fill="#9ca3af" />
@@ -226,469 +145,6 @@ function AnatomicalImage({
   )
 }
 
-// CATÁLOGO EXTENDIDO Y COMPLETO CON MÁS DE 50 EJERCICIOS
-const ANATOMICAL_EXERCISES: CatalogExercise[] = [
-  // ==================== ESPALDA ====================
-  {
-    id: 'e1',
-    name: 'Dominadas en barra (Pull-ups / Lastre)',
-    target_muscle: 'Espalda (Dorsales)',
-    secondary_muscle: 'Bíceps, Redondo Mayor',
-    equipment: 'Corporal / Lastre',
-    anatomical_image_url: 'https://fitcron.com/wp-content/uploads/2021/04/18661301-Wide-Grip-Pull-Up-on-Dip-Cage_Back_720.gif',
-  },
-  {
-    id: 'e2',
-    name: 'Dominadas agarre neutro / supino',
-    target_muscle: 'Espalda (Dorsal Ancho)',
-    secondary_muscle: 'Bíceps, Braquial',
-    equipment: 'Corporal / Lastre',
-    anatomical_image_url: 'https://louismove.com/wp-content/uploads/2023/05/18651101-Hammer-Grip-Pull-up-on-Dip-Cage_Back_medium.png',
-  },
-  {
-    id: 'e3',
-    name: 'Remo en T (T-Bar Row)',
-    target_muscle: 'Espalda (Densidad Media y Dorsal)',
-    secondary_muscle: 'Romboides, Trapecio Medio, Bíceps',
-    equipment: 'Barra / Máquina',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Lever-T-bar-Row.gif',
-  },
-  {
-    id: 'e4',
-    name: 'Jalón unilateral en polea alta',
-    target_muscle: 'Espalda (Dorsal Ancho Iliaco)',
-    secondary_muscle: 'Bíceps, Redondo Mayor',
-    equipment: 'Polea',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Lat-Pulldown.gif',
-  },
-  {
-    id: 'e5',
-    name: 'Jalón al pecho en polea alta (Agarre prono)',
-    target_muscle: 'Espalda (Dorsal Ancho)',
-    secondary_muscle: 'Bíceps, Trapecio Inferior',
-    equipment: 'Polea',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Lat-Pulldown.gif',
-  },
-  {
-    id: 'e6',
-    name: 'Remo con barra (Pendlay / 45°)',
-    target_muscle: 'Espalda (Media y Dorsal)',
-    secondary_muscle: 'Romboides, Erectores Espinales',
-    equipment: 'Barra',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Bent-Over-Row.gif',
-  },
-  {
-    id: 'e7',
-    name: 'Remo unilateral con mancuerna (Serrucho)',
-    target_muscle: 'Espalda (Dorsal y Redondo)',
-    secondary_muscle: 'Bíceps, Deltoides Posterior',
-    equipment: 'Mancuerna',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Row.gif',
-  },
-  {
-    id: 'e8',
-    name: 'Remo sentado en polea baja (Gironda)',
-    target_muscle: 'Espalda (Media y Dorsal)',
-    secondary_muscle: 'Romboides, Bíceps',
-    equipment: 'Polea',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Seated-Cable-Row.gif',
-  },
-  {
-    id: 'e9',
-    name: 'Pull-over en polea alta con cuerda',
-    target_muscle: 'Espalda (Aislamiento Dorsal Ancho)',
-    secondary_muscle: 'Redondo Mayor, Tríceps',
-    equipment: 'Polea',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Lat-Pulldown.gif',
-  },
-  {
-    id: 'e10',
-    name: 'Peso muerto convencional con barra',
-    target_muscle: 'Cadena Posterior y Espalda',
-    secondary_muscle: 'Glúteos, Isquiosurales, Trapecio',
-    equipment: 'Barra',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Deadlift.gif',
-  },
-  {
-    id: 'e11',
-    name: 'Remo en máquina con apoyo en el pecho',
-    target_muscle: 'Espalda (Zona Media y Trapecio)',
-    secondary_muscle: 'Romboides, Bíceps',
-    equipment: 'Máquina',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Lever-T-bar-Row.gif',
-  },
-  {
-    id: 'e12',
-    name: 'Encogimientos con mancuernas / barra',
-    target_muscle: 'Espalda (Trapecio Superior)',
-    secondary_muscle: 'Antebrazos',
-    equipment: 'Mancuerna',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Bent-Over-Row.gif',
-  },
-
-  // ==================== PECHO ====================
-  {
-    id: 'p1',
-    name: 'Press de banca plano con barra',
-    target_muscle: 'Pecho (Pectoral Mayor Esternal)',
-    secondary_muscle: 'Tríceps, Deltoides Anterior',
-    equipment: 'Barra',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Bench-Press.gif',
-  },
-  {
-    id: 'p2',
-    name: 'Press inclinado con mancuernas (30°)',
-    target_muscle: 'Pecho (Haz Clavicular / Superior)',
-    secondary_muscle: 'Deltoides Anterior, Tríceps',
-    equipment: 'Mancuerna',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Incline-Dumbbell-Press.gif',
-  },
-  {
-    id: 'p3',
-    name: 'Press de banca plano con mancuernas',
-    target_muscle: 'Pecho (Pectoral Mayor)',
-    secondary_muscle: 'Tríceps, Deltoides Anterior',
-    equipment: 'Mancuerna',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Press.gif',
-  },
-  {
-    id: 'p4',
-    name: 'Press inclinado con barra',
-    target_muscle: 'Pecho (Pectoral Superior)',
-    secondary_muscle: 'Deltoides Anterior, Tríceps',
-    equipment: 'Barra',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Incline-Dumbbell-Press.gif',
-  },
-  {
-    id: 'p5',
-    name: 'Aperturas en máquina (Pec Deck / Contractora)',
-    target_muscle: 'Pecho (Aislamiento Pectoral)',
-    secondary_muscle: 'Deltoides Anterior',
-    equipment: 'Máquina',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Pec-Deck-Fly.gif',
-  },
-  {
-    id: 'p6',
-    name: 'Cruces en polea alta a baja',
-    target_muscle: 'Pecho (Fibras Costales e Inferiores)',
-    secondary_muscle: 'Deltoides Anterior',
-    equipment: 'Polea',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Cable-Crossover.gif',
-  },
-  {
-    id: 'p7',
-    name: 'Cruces en polea baja a alta (Haz clavicular)',
-    target_muscle: 'Pecho (Pectoral Superior)',
-    secondary_muscle: 'Deltoides Anterior',
-    equipment: 'Polea',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Cable-Crossover.gif',
-  },
-  {
-    id: 'p8',
-    name: 'Fondos en paralelas (Enfoque Pectoral)',
-    target_muscle: 'Pecho (Pectoral Inferior)',
-    secondary_muscle: 'Tríceps, Deltoides Anterior',
-    equipment: 'Corporal / Lastre',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Chest-Dips.gif',
-  },
-  {
-    id: 'p9',
-    name: 'Press declinado con barra / mancuernas',
-    target_muscle: 'Pecho (Pectoral Inferior)',
-    secondary_muscle: 'Tríceps',
-    equipment: 'Barra',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Bench-Press.gif',
-  },
-
-  // ==================== HOMBROS ====================
-  {
-    id: 'h1',
-    name: 'Elevaciones laterales sentado con mancuernas',
-    target_muscle: 'Hombros (Deltoides Lateral)',
-    secondary_muscle: 'Supraespinoso, Trapecio Superior',
-    equipment: 'Mancuerna',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Lateral-Raise.gif',
-  },
-  {
-    id: 'h2',
-    name: 'Elevaciones laterales de pie con mancuernas',
-    target_muscle: 'Hombros (Deltoides Lateral)',
-    secondary_muscle: 'Trapecio',
-    equipment: 'Mancuerna',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Lateral-Raise.gif',
-  },
-  {
-    id: 'h3',
-    name: 'Elevaciones laterales en polea baja',
-    target_muscle: 'Hombros (Deltoides Lateral Constante)',
-    secondary_muscle: 'Supraespinoso',
-    equipment: 'Polea',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Lateral-Raise.gif',
-  },
-  {
-    id: 'h4',
-    name: 'Press militar de pie con barra (OHP)',
-    target_muscle: 'Hombros (Deltoides Anterior y Medio)',
-    secondary_muscle: 'Tríceps, Core, Trapecio',
-    equipment: 'Barra',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Military-Press.gif',
-  },
-  {
-    id: 'h5',
-    name: 'Press de hombros sentado con mancuernas',
-    target_muscle: 'Hombros (Deltoides Anterior)',
-    secondary_muscle: 'Tríceps, Deltoides Lateral',
-    equipment: 'Mancuerna',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Shoulder-Press.gif',
-  },
-  {
-    id: 'h6',
-    name: 'Face Pull en polea alta con cuerda',
-    target_muscle: 'Hombros (Deltoides Posterior y Manguito)',
-    secondary_muscle: 'Trapecio Medio, Romboides',
-    equipment: 'Polea',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Face-Pull.gif',
-  },
-  {
-    id: 'h7',
-    name: 'Pájaros con mancuernas / peck deck inverso',
-    target_muscle: 'Hombros (Deltoides Posterior)',
-    secondary_muscle: 'Romboides',
-    equipment: 'Mancuerna',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Face-Pull.gif',
-  },
-
-  // ==================== BRAZOS (BÍCEPS Y TRÍCEPS) ====================
-  {
-    id: 'b1',
-    name: 'Predicador con barra Z (Banco Scott)',
-    target_muscle: 'Brazos (Bíceps Cabeza Corta y Braquial)',
-    secondary_muscle: 'Supinador Largo',
-    equipment: 'Barra Z',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Z-Bar-Preacher-Curl.gif',
-  },
-  {
-    id: 'b2',
-    name: 'Curl de bíceps de pie con barra Z / recta',
-    target_muscle: 'Brazos (Bíceps Braquial)',
-    secondary_muscle: 'Braquial Anterior, Antebrazo',
-    equipment: 'Barra Z',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Curl.gif',
-  },
-  {
-    id: 'b3',
-    name: 'Curl inclinado con mancuernas (60°)',
-    target_muscle: 'Brazos (Bíceps Cabeza Larga)',
-    secondary_muscle: 'Braquial',
-    equipment: 'Mancuerna',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Curl.gif',
-  },
-  {
-    id: 'b4',
-    name: 'Curl martillo con mancuernas',
-    target_muscle: 'Brazos (Braquial y Braquiorradial)',
-    secondary_muscle: 'Bíceps Braquial',
-    equipment: 'Mancuerna',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Hammer-Curl.gif',
-  },
-  {
-    id: 'b5',
-    name: 'Curl en polea baja (Bayesian curl)',
-    target_muscle: 'Brazos (Bíceps en máximo estiramiento)',
-    secondary_muscle: 'Antebrazo',
-    equipment: 'Polea',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Hammer-Curl.gif',
-  },
-  {
-    id: 'b6',
-    name: 'Curl spider en banco inclinado',
-    target_muscle: 'Brazos (Bíceps Cabeza Corta)',
-    secondary_muscle: 'Braquial',
-    equipment: 'Barra Z',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Curl.gif',
-  },
-  {
-    id: 't1',
-    name: 'Extensión de tríceps tras nuca en polea (Overhead)',
-    target_muscle: 'Brazos (Tríceps Cabeza Larga)',
-    secondary_muscle: 'Cabeza Lateral y Medial',
-    equipment: 'Polea',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Pushdown.gif',
-  },
-  {
-    id: 't2',
-    name: 'Extensión de tríceps en polea alta con cuerda',
-    target_muscle: 'Brazos (Tríceps Cabeza Lateral y Medial)',
-    secondary_muscle: 'Ancóneo',
-    equipment: 'Polea',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Pushdown.gif',
-  },
-  {
-    id: 't3',
-    name: 'Press francés con barra Z tumbado',
-    target_muscle: 'Brazos (Tríceps Completo)',
-    secondary_muscle: 'Antebrazo',
-    equipment: 'Barra Z',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Chest-Dips.gif',
-  },
-  {
-    id: 't4',
-    name: 'Fondos entre bancos / Fondos paralelas tríceps',
-    target_muscle: 'Brazos (Tríceps)',
-    secondary_muscle: 'Pecho, Deltoides Anterior',
-    equipment: 'Corporal',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Chest-Dips.gif',
-  },
-  {
-    id: 't5',
-    name: 'Press cerrado de banca con barra',
-    target_muscle: 'Brazos (Tríceps Cabeza Medial y Lateral)',
-    secondary_muscle: 'Pectoral, Deltoides',
-    equipment: 'Barra',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Bench-Press.gif',
-  },
-
-  // ==================== PIERNAS Y GLÚTEOS ====================
-  {
-    id: 'c1',
-    name: 'Sentadilla trasera con barra (Back Squat)',
-    target_muscle: 'Cuádriceps (Vasto Lateral, Medial y Recto)',
-    secondary_muscle: 'Glúteo Mayor, Aductores, Core',
-    equipment: 'Barra',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/BARBELL-SQUAT.gif',
-  },
-  {
-    id: 'c2',
-    name: 'Prensa de piernas inclinada 45°',
-    target_muscle: 'Cuádriceps',
-    secondary_muscle: 'Glúteos, Isquiosurales',
-    equipment: 'Máquina',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Leg-Press.gif',
-  },
-  {
-    id: 'c3',
-    name: 'Sentadilla Hack en máquina (Hack Squat)',
-    target_muscle: 'Cuádriceps (Vastos)',
-    secondary_muscle: 'Glúteos',
-    equipment: 'Máquina',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Sled-Hack-Squat.gif',
-  },
-  {
-    id: 'c4',
-    name: 'Extensión de cuádriceps en máquina (Sillón)',
-    target_muscle: 'Cuádriceps (Recto Femoral y Vastos)',
-    secondary_muscle: 'Articulación rodilla',
-    equipment: 'Máquina',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/LEG-EXTENSION.gif',
-  },
-  {
-    id: 'c5',
-    name: 'Sentadilla búlgara con mancuernas',
-    target_muscle: 'Cuádriceps y Glúteo Mayor',
-    secondary_muscle: 'Aductores, Isquiosurales',
-    equipment: 'Mancuerna',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Bulgarian-Split-Squat.gif',
-  },
-  {
-    id: 'c6',
-    name: 'Zancadas caminando con mancuernas',
-    target_muscle: 'Cuádriceps y Glúteos',
-    secondary_muscle: 'Isquiosurales, Core',
-    equipment: 'Mancuerna',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Bulgarian-Split-Squat.gif',
-  },
-  {
-    id: 'i1',
-    name: 'Peso muerto rumano con barra (RDL)',
-    target_muscle: 'Isquiosurales (Bíceps Femoral y Semitendinoso)',
-    secondary_muscle: 'Glúteo Mayor, Erectores Espinales',
-    equipment: 'Barra',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Romanian-Deadlift.gif',
-  },
-  {
-    id: 'i2',
-    name: 'Curl femoral tumbado en máquina',
-    target_muscle: 'Isquiosurales',
-    secondary_muscle: 'Gemelos',
-    equipment: 'Máquina',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Lying-Leg-Curl.gif',
-  },
-  {
-    id: 'i3',
-    name: 'Curl femoral sentado en máquina',
-    target_muscle: 'Isquiosurales (Máximo estiramiento)',
-    secondary_muscle: 'Gemelos',
-    equipment: 'Máquina',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Seated-Leg-Curl.gif',
-  },
-  {
-    id: 'i4',
-    name: 'Peso muerto rumano unilateral con mancuernas',
-    target_muscle: 'Isquiosurales y Glúteo',
-    secondary_muscle: 'Estabilizadores de cadera',
-    equipment: 'Mancuerna',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Romanian-Deadlift.gif',
-  },
-  {
-    id: 'g1',
-    name: 'Hip Thrust con barra olímpica',
-    target_muscle: 'Glúteos (Glúteo Mayor)',
-    secondary_muscle: 'Isquiosurales, Core',
-    equipment: 'Barra',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Hip-Thrust.gif',
-  },
-  {
-    id: 'g2',
-    name: 'Abducción de cadera sentado en máquina',
-    target_muscle: 'Glúteos (Glúteo Medio y Menor)',
-    secondary_muscle: 'Tensor de la Fascia Lata',
-    equipment: 'Máquina',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/HiP-ABDUCTION-MACHINE.gif',
-  },
-  {
-    id: 'g3',
-    name: 'Patada de glúteo en polea baja',
-    target_muscle: 'Glúteos (Glúteo Mayor)',
-    secondary_muscle: 'Isquiosurales',
-    equipment: 'Polea',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Hip-Thrust.gif',
-  },
-  {
-    id: 'cal1',
-    name: 'Elevación de talones de pie en máquina',
-    target_muscle: 'Gemelos (Gastrocnemio)',
-    secondary_muscle: 'Sóleo',
-    equipment: 'Máquina',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Standing-Calf-Raise.gif',
-  },
-  {
-    id: 'cal2',
-    name: 'Elevación de talones sentado en máquina',
-    target_muscle: 'Gemelos (Sóleo)',
-    secondary_muscle: 'Gastrocnemio',
-    equipment: 'Máquina',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Lever-Seated-Calf-Raise.gif',
-  },
-
-  // ==================== CORE / ABDOMEN ====================
-  {
-    id: 'ab1',
-    name: 'Elevación de piernas colgado en barra',
-    target_muscle: 'Abdomen (Recto Abdominal Inferior)',
-    secondary_muscle: 'Flexores de cadera, Agarre',
-    equipment: 'Barra',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Pushdown.gif',
-  },
-  {
-    id: 'ab2',
-    name: 'Crunch en polea alta arrodillado',
-    target_muscle: 'Abdomen (Recto Abdominal Superior)',
-    secondary_muscle: 'Oblicuos',
-    equipment: 'Polea',
-    anatomical_image_url: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Pushdown.gif',
-  },
-]
-
 const MUSCLE_FILTER_OPTIONS = [
   'Todos',
   'Espalda',
@@ -702,11 +158,10 @@ const MUSCLE_FILTER_OPTIONS = [
   'Abdomen',
 ]
 
-// DIVISIÓN BASE DE 5 DÍAS
 const DEFAULT_5_DAY_PROGRAM: WorkoutProgram = {
   id: 'prog-5-dias-base',
   name: 'Mi División de 5 Días',
-  description: 'Estructura personalizada: Torso A, Pierna, Torso B, Pierna y Brazos',
+  description: 'Torso A, Pierna, Torso B, Pierna y Brazos',
   days: [
     {
       id: 'd1-torso-a',
@@ -715,12 +170,12 @@ const DEFAULT_5_DAY_PROGRAM: WorkoutProgram = {
       subtitle: 'Espalda dominante, banca pesada, laterales y brazos',
       estimatedDuration: '60 min',
       items: [
-        { exerciseId: 'e1', setsCount: 3, defaultWeight: 10, defaultReps: 8, defaultRir: 1, note: 'Pausa 1s arriba' },
-        { exerciseId: 'p1', setsCount: 3, defaultWeight: 80, defaultReps: 8, defaultRir: 1, note: 'Retracción firme' },
-        { exerciseId: 'e3', setsCount: 3, defaultWeight: 65, defaultReps: 10, defaultRir: 1, note: 'Remo T' },
-        { exerciseId: 'h1', setsCount: 3, defaultWeight: 12, defaultReps: 12, defaultRir: 1, note: 'Laterales' },
-        { exerciseId: 'b1', setsCount: 2, defaultWeight: 32.5, defaultReps: 10, defaultRir: 1, note: 'Predicador' },
-        { exerciseId: 't1', setsCount: 2, defaultWeight: 25, defaultReps: 12, defaultRir: 1, note: 'Overhead' },
+        { exerciseId: 'ex-1', setsCount: 3, defaultWeight: 10, defaultReps: 8, defaultRir: 1, note: 'Pausa 1s arriba' },
+        { exerciseId: 'ex-20', setsCount: 3, defaultWeight: 80, defaultReps: 8, defaultRir: 1, note: 'Retracción firme' },
+        { exerciseId: 'ex-4', setsCount: 3, defaultWeight: 65, defaultReps: 10, defaultRir: 1, note: 'Remo T' },
+        { exerciseId: 'ex-35', setsCount: 3, defaultWeight: 12, defaultReps: 12, defaultRir: 1, note: 'Laterales' },
+        { exerciseId: 'ex-48', setsCount: 2, defaultWeight: 32.5, defaultReps: 10, defaultRir: 1, note: 'Predicador' },
+        { exerciseId: 'ex-58', setsCount: 2, defaultWeight: 25, defaultReps: 12, defaultRir: 1, note: 'Overhead' },
       ],
     },
     {
@@ -730,11 +185,11 @@ const DEFAULT_5_DAY_PROGRAM: WorkoutProgram = {
       subtitle: 'Sentadilla trasera, peso muerto rumano y prensa 45°',
       estimatedDuration: '65 min',
       items: [
-        { exerciseId: 'c1', setsCount: 3, defaultWeight: 100, defaultReps: 8, defaultRir: 2, note: 'Profunda' },
-        { exerciseId: 'i1', setsCount: 3, defaultWeight: 90, defaultReps: 8, defaultRir: 2, note: 'Cadera atrás' },
-        { exerciseId: 'c2', setsCount: 3, defaultWeight: 180, defaultReps: 10, defaultRir: 1, note: 'Prensa 45°' },
-        { exerciseId: 'i3', setsCount: 3, defaultWeight: 55, defaultReps: 12, defaultRir: 1, note: 'Femoral sentado' },
-        { exerciseId: 'cal1', setsCount: 3, defaultWeight: 70, defaultReps: 15, defaultRir: 1, note: 'Gemelos' },
+        { exerciseId: 'ex-68', setsCount: 3, defaultWeight: 100, defaultReps: 8, defaultRir: 2, note: 'Profunda' },
+        { exerciseId: 'ex-78', setsCount: 3, defaultWeight: 90, defaultReps: 8, defaultRir: 2, note: 'Cadera atrás' },
+        { exerciseId: 'ex-71', setsCount: 3, defaultWeight: 180, defaultReps: 10, defaultRir: 1, note: 'Prensa 45°' },
+        { exerciseId: 'ex-81', setsCount: 3, defaultWeight: 55, defaultReps: 12, defaultRir: 1, note: 'Femoral sentado' },
+        { exerciseId: 'ex-93', setsCount: 3, defaultWeight: 70, defaultReps: 15, defaultRir: 1, note: 'Gemelos' },
       ],
     },
     {
@@ -744,12 +199,12 @@ const DEFAULT_5_DAY_PROGRAM: WorkoutProgram = {
       subtitle: 'Press inclinado mancuernas, jalón al pecho y deltoides posterior',
       estimatedDuration: '60 min',
       items: [
-        { exerciseId: 'p2', setsCount: 3, defaultWeight: 30, defaultReps: 10, defaultRir: 1, note: 'Inclinado 30°' },
-        { exerciseId: 'e5', setsCount: 3, defaultWeight: 65, defaultReps: 10, defaultRir: 1, note: 'Jalón polea' },
-        { exerciseId: 'e8', setsCount: 3, defaultWeight: 60, defaultReps: 10, defaultRir: 1, note: 'Remo Gironda' },
-        { exerciseId: 'h6', setsCount: 3, defaultWeight: 30, defaultReps: 15, defaultRir: 1, note: 'Face pull' },
-        { exerciseId: 'b4', setsCount: 2, defaultWeight: 16, defaultReps: 10, defaultRir: 1, note: 'Martillo' },
-        { exerciseId: 't2', setsCount: 2, defaultWeight: 30, defaultReps: 12, defaultRir: 1, note: 'Cuerda tríceps' },
+        { exerciseId: 'ex-21', setsCount: 3, defaultWeight: 30, defaultReps: 10, defaultRir: 1, note: 'Inclinado 30°' },
+        { exerciseId: 'ex-6', setsCount: 3, defaultWeight: 65, defaultReps: 10, defaultRir: 1, note: 'Jalón polea' },
+        { exerciseId: 'ex-12', setsCount: 3, defaultWeight: 60, defaultReps: 10, defaultRir: 1, note: 'Remo Gironda' },
+        { exerciseId: 'ex-43', setsCount: 3, defaultWeight: 30, defaultReps: 15, defaultRir: 1, note: 'Face pull' },
+        { exerciseId: 'ex-52', setsCount: 2, defaultWeight: 16, defaultReps: 10, defaultRir: 1, note: 'Martillo' },
+        { exerciseId: 'ex-59', setsCount: 2, defaultWeight: 30, defaultReps: 12, defaultRir: 1, note: 'Cuerda tríceps' },
       ],
     },
     {
@@ -759,10 +214,10 @@ const DEFAULT_5_DAY_PROGRAM: WorkoutProgram = {
       subtitle: 'Hip Thrust pesado, sentadillas búlgaras y extensiones',
       estimatedDuration: '60 min',
       items: [
-        { exerciseId: 'g1', setsCount: 3, defaultWeight: 120, defaultReps: 10, defaultRir: 1, note: 'Bloqueo 1s' },
-        { exerciseId: 'c5', setsCount: 3, defaultWeight: 22, defaultReps: 10, defaultRir: 1, note: 'Búlgaras' },
-        { exerciseId: 'c4', setsCount: 3, defaultWeight: 60, defaultReps: 12, defaultRir: 1, note: 'Sillón cuádriceps' },
-        { exerciseId: 'i3', setsCount: 3, defaultWeight: 50, defaultReps: 12, defaultRir: 1, note: 'Femoral sentado' },
+        { exerciseId: 'ex-86', setsCount: 3, defaultWeight: 120, defaultReps: 10, defaultRir: 1, note: 'Bloqueo 1s' },
+        { exerciseId: 'ex-73', setsCount: 3, defaultWeight: 22, defaultReps: 10, defaultRir: 1, note: 'Búlgaras' },
+        { exerciseId: 'ex-72', setsCount: 3, defaultWeight: 60, defaultReps: 12, defaultRir: 1, note: 'Sillón cuádriceps' },
+        { exerciseId: 'ex-81', setsCount: 3, defaultWeight: 50, defaultReps: 12, defaultRir: 1, note: 'Femoral sentado' },
       ],
     },
     {
@@ -772,11 +227,11 @@ const DEFAULT_5_DAY_PROGRAM: WorkoutProgram = {
       subtitle: 'Bíceps estiramiento, tríceps tras nuca y laterales al fallo',
       estimatedDuration: '55 min',
       items: [
-        { exerciseId: 'b1', setsCount: 3, defaultWeight: 32.5, defaultReps: 10, defaultRir: 1, note: 'Scott Z' },
-        { exerciseId: 't1', setsCount: 3, defaultWeight: 25, defaultReps: 12, defaultRir: 1, note: 'Overhead polea' },
-        { exerciseId: 'b3', setsCount: 3, defaultWeight: 14, defaultReps: 10, defaultRir: 1, note: 'Curl 60°' },
-        { exerciseId: 't3', setsCount: 3, defaultWeight: 30, defaultReps: 10, defaultRir: 1, note: 'Press francés' },
-        { exerciseId: 'h1', setsCount: 4, defaultWeight: 12, defaultReps: 15, defaultRir: 0, note: 'Laterales RIR 0' },
+        { exerciseId: 'ex-48', setsCount: 3, defaultWeight: 32.5, defaultReps: 10, defaultRir: 1, note: 'Scott Z' },
+        { exerciseId: 'ex-58', setsCount: 3, defaultWeight: 25, defaultReps: 12, defaultRir: 1, note: 'Overhead polea' },
+        { exerciseId: 'ex-51', setsCount: 3, defaultWeight: 14, defaultReps: 10, defaultRir: 1, note: 'Curl 60°' },
+        { exerciseId: 'ex-61', setsCount: 3, defaultWeight: 30, defaultReps: 10, defaultRir: 1, note: 'Press francés' },
+        { exerciseId: 'ex-35', setsCount: 4, defaultWeight: 12, defaultReps: 15, defaultRir: 0, note: 'Laterales RIR 0' },
       ],
     },
   ],
@@ -791,20 +246,21 @@ export default function ActiveWorkoutPage() {
   const [authError, setAuthError] = useState('')
   const [authSubmitting, setAuthSubmitting] = useState(false)
 
-  const [activeTab, setActiveTab] = useState<'home' | 'workout' | 'history' | 'library'>('home')
+  // 5 Pestañas de navegación
+  const [activeTab, setActiveTab] = useState<'home' | 'workout' | 'routines' | 'history' | 'library'>('home')
   const [bodyWeightKg, setBodyWeightKg] = useState<number>(80)
 
-  // Programas y días
+  // Programas y Días
   const [programsList, setProgramsList] = useState<WorkoutProgram[]>([DEFAULT_5_DAY_PROGRAM])
   const [selectedProgramId, setSelectedProgramId] = useState<string>(DEFAULT_5_DAY_PROGRAM.id)
   const [activeDayIndex, setActiveDayIndex] = useState<number>(0)
 
-  // Modal crear programa
+  // Modales
   const [isCreatingProgram, setIsCreatingProgram] = useState(false)
   const [newProgramName, setNewProgramName] = useState('')
   const [newProgramDesc, setNewProgramDesc] = useState('')
 
-  // Modal para agregar o editar un día con configuración manual de Series, Reps y Peso
+  // Modal agregar/editar día
   const [isDayModalOpen, setIsDayModalOpen] = useState(false)
   const [editingDayId, setEditingDayId] = useState<string | null>(null)
   const [modalDayBadge, setModalDayBadge] = useState('Día 1')
@@ -824,13 +280,13 @@ export default function ActiveWorkoutPage() {
   const [isRestActive, setIsRestActive] = useState(false)
 
   // Catálogo completo
-  const [catalog, setCatalog] = useState<CatalogExercise[]>(ANATOMICAL_EXERCISES)
+  const catalog = ANATOMICAL_EXERCISES
   const [libraryMuscleFilter, setLibraryMuscleFilter] = useState('Todos')
   const [librarySearchQuery, setLibrarySearchQuery] = useState('')
   const [isSummaryOpen, setIsSummaryOpen] = useState(false)
   const [selectedPreview, setSelectedPreview] = useState<CatalogExercise | null>(null)
 
-  // Supabase persistencia
+  // Supabase
   const [isSaving, setIsSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [historyList, setHistoryList] = useState<PastWorkout[]>([])
@@ -838,58 +294,86 @@ export default function ActiveWorkoutPage() {
   const historyLoadedRef = useRef(false)
 
   // Ejercicios activos
-  const [exercises, setExercises] = useState<WorkoutExercise[]>([
-    {
-      id: 'ex-1',
-      exerciseId: 'e1',
-      name: 'Dominadas en barra (Pull-ups / Lastre)',
-      targetMuscle: 'Espalda (Dorsales)',
-      secondaryMuscle: 'Bíceps, Redondo Mayor',
-      anatomicalImageUrl:
-        'https://fitcron.com/wp-content/uploads/2021/04/18661301-Wide-Grip-Pull-Up-on-Dip-Cage_Back_720.gif',
-      previousBest: 'BW + 10 kg × 8',
-      note: 'Controlar bajada 2s',
-      sets: [
-        { id: 's-1', setNumber: 1, weight: 10, reps: 8, rir: 2, isCompleted: false, isPr: false },
-        { id: 's-2', setNumber: 2, weight: 10, reps: 8, rir: 1, isCompleted: false, isPr: false },
-      ],
-    },
-    {
-      id: 'ex-2',
-      exerciseId: 'p1',
-      name: 'Press de banca plano con barra',
-      targetMuscle: 'Pecho (Pectoral Mayor Esternal)',
-      secondaryMuscle: 'Tríceps, Deltoides Anterior',
-      anatomicalImageUrl:
-        'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Bench-Press.gif',
-      previousBest: '80 kg × 8',
-      note: 'Retracción escapular firme',
-      sets: [
-        { id: 's-3', setNumber: 1, weight: 80, reps: 8, rir: 1, isCompleted: false, isPr: false },
-        { id: 's-4', setNumber: 2, weight: 80, reps: 8, rir: 1, isCompleted: false, isPr: false },
-      ],
-    },
-  ])
+  const [exercises, setExercises] = useState<WorkoutExercise[]>([])
 
-  // Cargar programas de localStorage
+  // Inicializar ejercicios por defecto desde el Día 1
+  useEffect(() => {
+    if (exercises.length === 0 && DEFAULT_5_DAY_PROGRAM.days[0]) {
+      const d1 = DEFAULT_5_DAY_PROGRAM.days[0]
+      const built = d1.items.map((item, idx) => {
+        const catEx = catalog.find((c) => c.id === item.exerciseId) || catalog[0]
+        return {
+          id: `wex-init-${idx}`,
+          exerciseId: catEx.id,
+          name: catEx.name,
+          targetMuscle: catEx.target_muscle,
+          secondaryMuscle: catEx.secondary_muscle,
+          anatomicalImageUrl: catEx.anatomical_image_url,
+          previousBest: `${item.defaultWeight} kg × ${item.defaultReps}`,
+          note: item.note || '',
+          sets: Array.from({ length: item.setsCount }).map((_, sIdx) => ({
+            id: `set-init-${idx}-${sIdx}`,
+            setNumber: sIdx + 1,
+            weight: item.defaultWeight,
+            reps: item.defaultReps,
+            rir: item.defaultRir,
+            isCompleted: false,
+            isPr: false,
+          })),
+        }
+      })
+      setExercises(built)
+      setWorkoutName(d1.title)
+    }
+  }, [catalog, exercises.length])
+
+  // Carga y recuperación de rutinas de localStorage
   useEffect(() => {
     try {
-      const savedProgs = localStorage.getItem('user_workout_programs_v4')
-      if (savedProgs) {
-        const parsed = JSON.parse(savedProgs)
+      const saved =
+        localStorage.getItem('user_workout_programs_v6') ||
+        localStorage.getItem('user_workout_programs_v5') ||
+        localStorage.getItem('user_workout_programs_v4') ||
+        localStorage.getItem('user_workout_programs_v3') ||
+        localStorage.getItem('user_workout_programs_v2') ||
+        localStorage.getItem('custom_user_routines')
+
+      if (saved) {
+        const parsed = JSON.parse(saved)
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setProgramsList(parsed)
-          setSelectedProgramId(parsed[0].id)
+          const formatted = parsed[0]?.days
+            ? parsed
+            : [
+                DEFAULT_5_DAY_PROGRAM,
+                {
+                  id: 'prog-custom-recuperado',
+                  name: 'Mis Rutinas Creadas',
+                  description: 'Rutinas recuperadas de la sesión anterior',
+                  days: parsed.map((item: any, idx: number) => ({
+                    id: item.id || `day-rec-${idx}`,
+                    dayBadge: item.dayBadge || `Día ${idx + 1}`,
+                    title: item.title || item.name || `Día ${idx + 1}`,
+                    subtitle: item.subtitle || '',
+                    estimatedDuration: item.estimatedDuration || '60 min',
+                    items: item.items || [],
+                  })),
+                },
+              ]
+
+          setProgramsList(formatted)
+          setSelectedProgramId(formatted[formatted.length - 1].id)
+          localStorage.setItem('user_workout_programs_v6', JSON.stringify(formatted))
         }
       }
     } catch (e) {
-      console.warn('Error leyendo programas:', e)
+      console.warn('Error recuperando programas:', e)
     }
   }, [])
+
   const savePrograms = (newList: WorkoutProgram[]) => {
     setProgramsList(newList)
     try {
-      localStorage.setItem('user_workout_programs_v4', JSON.stringify(newList))
+      localStorage.setItem('user_workout_programs_v6', JSON.stringify(newList))
     } catch (e) {
       console.warn('Error guardando programas:', e)
     }
@@ -923,7 +407,7 @@ export default function ActiveWorkoutPage() {
     setAuthSubmitting(true)
     const supabase = createClient()
     if (!supabase) {
-      setAuthError('Supabase no configurado en client.ts')
+      setAuthError('Supabase no configurado')
       setAuthSubmitting(false)
       return
     }
@@ -959,7 +443,6 @@ export default function ActiveWorkoutPage() {
     }
   }
 
-  // Cargar historial sin bucle ni parpadeos
   const loadHistory = async (force = false) => {
     if (!user) return
     if (historyLoadedRef.current && !force) return
@@ -1098,10 +581,7 @@ export default function ActiveWorkoutPage() {
 
   const handleStartDay = (day: ProgramDay) => {
     const builtExercises: WorkoutExercise[] = day.items.map((item, idx) => {
-      const catEx =
-        catalog.find((c) => c.id === item.exerciseId) ||
-        ANATOMICAL_EXERCISES.find((c) => c.id === item.exerciseId) ||
-        ANATOMICAL_EXERCISES[0]
+      const catEx = catalog.find((c) => c.id === item.exerciseId) || catalog[0]
 
       const sets: ExerciseSet[] = Array.from({ length: item.setsCount }).map((_, sIdx) => ({
         id: `set-${Date.now()}-${idx}-${sIdx}`,
@@ -1155,7 +635,6 @@ export default function ActiveWorkoutPage() {
     setNewProgramDesc('')
   }
 
-  // Abrir modal para CREAR día
   const openCreateDayModal = () => {
     setEditingDayId(null)
     setModalDayBadge(`Día ${currentProgram?.days.length ? currentProgram.days.length + 1 : 1}`)
@@ -1167,7 +646,6 @@ export default function ActiveWorkoutPage() {
     setIsDayModalOpen(true)
   }
 
-  // Abrir modal para EDITAR día
   const openEditDayModal = (day: ProgramDay) => {
     setEditingDayId(day.id)
     setModalDayBadge(day.dayBadge)
@@ -1196,7 +674,6 @@ export default function ActiveWorkoutPage() {
     setActiveDayIndex(0)
   }
 
-  // Añadir o quitar ejercicio del modal
   const toggleModalExercise = (exId: string) => {
     const exists = modalItems.find((i) => i.exerciseId === exId)
     if (exists) {
@@ -1216,7 +693,6 @@ export default function ActiveWorkoutPage() {
     }
   }
 
-  // Actualizar series, reps o peso en el modal de creación/edición
   const updateModalItemField = (
     exId: string,
     field: 'setsCount' | 'defaultReps' | 'defaultWeight',
@@ -1387,7 +863,6 @@ export default function ActiveWorkoutPage() {
     }
   }
 
-  // Pantalla de Login
   if (!user && !authLoading) {
     return (
       <main className="min-h-screen bg-neutral-950 text-white flex items-center justify-center p-4">
@@ -1458,7 +933,7 @@ export default function ActiveWorkoutPage() {
 
   return (
     <main className="min-h-screen bg-neutral-950 text-neutral-100 p-4 max-w-md mx-auto pb-28">
-      {/* ================= VISTA 0: INICIO ================= */}
+      {/* ================= 1. INICIO ================= */}
       {activeTab === 'home' && (
         <div className="space-y-4">
           <header className="flex items-center justify-between border-b border-neutral-800 pb-3">
@@ -1467,7 +942,7 @@ export default function ActiveWorkoutPage() {
                 <Flame className="w-3.5 h-3.5" /> Tracker Personal
               </span>
               <h1 className="text-xl font-extrabold text-white tracking-tight mt-0.5">
-                Panel de Rutinas
+                Panel Principal
               </h1>
             </div>
 
@@ -1525,18 +1000,73 @@ export default function ActiveWorkoutPage() {
             </div>
           )}
 
-          {/* Selector de Programas */}
-          <div className="flex items-center justify-between pt-1">
-            <span className="text-[11px] uppercase font-bold text-neutral-400 flex items-center gap-1.5">
-              <Layers className="w-3.5 h-3.5 text-lime-400" /> Programa:
-            </span>
+          {/* Métricas rápidas */}
+          <div className="grid grid-cols-3 gap-2.5">
+            <div className="bg-neutral-900 border border-neutral-800/90 rounded-2xl p-3">
+              <span className="text-[10px] uppercase font-bold text-neutral-400 block">Sesiones</span>
+              <span className="text-lg font-extrabold font-mono text-white mt-0.5 block">{historySummaryStats.totalSessions}</span>
+              <span className="text-[10px] text-lime-400 font-medium">Guardadas</span>
+            </div>
+
+            <div className="bg-neutral-900 border border-neutral-800/90 rounded-2xl p-3">
+              <span className="text-[10px] uppercase font-bold text-neutral-400 block">Tonelaje</span>
+              <span className="text-lg font-extrabold font-mono text-lime-400 mt-0.5 block">{historySummaryStats.accumulatedVolume} kg</span>
+              <span className="text-[10px] text-neutral-400 font-medium">Histórico</span>
+            </div>
+
+            <div className="bg-neutral-900 border border-neutral-800/90 rounded-2xl p-3">
+              <span className="text-[10px] uppercase font-bold text-neutral-400 block">Objetivo</span>
+              <span className="text-lg font-extrabold font-mono text-white mt-0.5 block">RIR 1 - 2</span>
+              <span className="text-[10px] text-lime-400 font-medium">Hipertrofia</span>
+            </div>
+          </div>
+
+          {/* Acceso a Rutinas */}
+          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-5 text-center space-y-3">
+            <h2 className="text-base font-extrabold text-white">¿Listo para entrenar hoy?</h2>
+            <p className="text-xs text-neutral-400 max-w-xs mx-auto">
+              Accede a tus programas divididos de 5 días o configura una nueva sesión en la pestaña <strong>Rutinas</strong>.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setActiveTab('routines')}
+                className="flex-1 py-3 bg-lime-400 hover:bg-lime-300 text-neutral-950 font-extrabold text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-1.5"
+              >
+                <ClipboardList className="w-4 h-4" /> Ir a Mis Rutinas
+              </button>
+              <button
+                onClick={() => {
+                  setWorkoutName('Sesión Libre')
+                  setIsSessionRunning(true)
+                  setActiveTab('workout')
+                }}
+                className="px-4 py-3 bg-neutral-950 border border-neutral-800 hover:border-neutral-700 text-neutral-300 font-bold text-xs rounded-xl transition"
+              >
+                Entreno Libre
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= 2. PESTAÑA: RUTINAS ================= */}
+      {activeTab === 'routines' && (
+        <div className="space-y-4">
+          <header className="flex items-center justify-between border-b border-neutral-800 pb-3">
+            <div>
+              <span className="text-[11px] uppercase tracking-wider text-lime-400 font-bold">
+                Gestor de Programas
+              </span>
+              <h1 className="text-xl font-extrabold text-white">Mis Rutinas</h1>
+            </div>
+
             <button
               onClick={() => setIsCreatingProgram(true)}
-              className="text-xs font-bold text-lime-400 flex items-center gap-1 hover:underline"
+              className="px-3 py-1.5 bg-lime-400 hover:bg-lime-300 text-neutral-950 rounded-xl text-xs font-extrabold flex items-center gap-1 shadow-md transition"
             >
               <FolderPlus className="w-3.5 h-3.5" /> + Nueva Rutina
             </button>
-          </div>
+          </header>
 
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
             {programsList.map((prog) => (
@@ -1557,7 +1087,6 @@ export default function ActiveWorkoutPage() {
             ))}
           </div>
 
-          {/* Días dentro del programa seleccionado */}
           {currentProgram && (
             <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-4 shadow-xl space-y-4">
               <div className="flex items-center justify-between border-b border-neutral-800 pb-2.5">
@@ -1628,11 +1157,7 @@ export default function ActiveWorkoutPage() {
 
                       <div className="space-y-2 pt-1 border-t border-neutral-800/80">
                         {currentDay.items.map((item, idx) => {
-                          const exInfo =
-                            catalog.find((c) => c.id === item.exerciseId) ||
-                            ANATOMICAL_EXERCISES.find((c) => c.id === item.exerciseId)
-
-                          if (!exInfo) return null
+                          const exInfo = catalog.find((c) => c.id === item.exerciseId) || catalog[0]
 
                           return (
                             <div
@@ -1697,266 +1222,7 @@ export default function ActiveWorkoutPage() {
         </div>
       )}
 
-      {/* ================= MODAL: CREAR O EDITAR DÍA CON SERIES/REPS/PESO PERSONALIZABLES ================= */}
-      {isDayModalOpen && (
-        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-3xl p-5 shadow-2xl max-h-[92vh] flex flex-col">
-            <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
-              <h3 className="text-base font-extrabold text-white flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-lime-400" />
-                {editingDayId ? 'Editar Día' : 'Añadir Día'}
-              </h3>
-              <button
-                onClick={() => setIsDayModalOpen(false)}
-                className="p-1 bg-neutral-950 rounded-lg text-neutral-400"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="overflow-y-auto py-3 space-y-3 flex-1 pr-1">
-              <div className="grid grid-cols-3 gap-2">
-                <div className="col-span-1">
-                  <label className="text-[10px] font-bold text-neutral-400 block mb-1">Etiqueta</label>
-                  <input
-                    type="text"
-                    value={modalDayBadge}
-                    onChange={(e) => setModalDayBadge(e.target.value)}
-                    placeholder="Día 1"
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-lime-400"
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label className="text-[10px] font-bold text-neutral-400 block mb-1">Nombre del Día *</label>
-                  <input
-                    type="text"
-                    value={modalDayTitle}
-                    onChange={(e) => setModalDayTitle(e.target.value)}
-                    placeholder="Ej. Torso A, Pierna..."
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-lime-400"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-neutral-400 block mb-1">Subtítulo / Músculos</label>
-                <input
-                  type="text"
-                  value={modalDaySubtitle}
-                  onChange={(e) => setModalDaySubtitle(e.target.value)}
-                  placeholder="Ej. Espalda, Pecho y Brazos"
-                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-lime-400"
-                />
-              </div>
-
-              {/* SECCIÓN 1: AJUSTE DE SERIES, REPS Y PESO DE EJERCICIOS SELECCIONADOS */}
-              {modalItems.length > 0 && (
-                <div className="space-y-2 bg-neutral-950 p-3 rounded-2xl border border-neutral-800">
-                  <span className="text-[11px] font-bold text-lime-400 uppercase tracking-wider block">
-                    Configuración de Series ({modalItems.length} ejercicios):
-                  </span>
-                  <div className="space-y-2.5 max-h-48 overflow-y-auto pr-1">
-                    {modalItems.map((item) => {
-                      const ex = catalog.find((c) => c.id === item.exerciseId)
-                      return (
-                        <div key={item.exerciseId} className="bg-neutral-900 p-2.5 rounded-xl border border-neutral-800/80 space-y-1.5">
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs font-bold text-white truncate max-w-[190px]">
-                              {ex?.name || item.exerciseId}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => toggleModalExercise(item.exerciseId)}
-                              className="text-neutral-500 hover:text-red-400"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-
-                          <div className="grid grid-cols-3 gap-2 text-center text-[10px] text-neutral-400">
-                            <div>
-                              <span className="block mb-0.5">Series</span>
-                              <input
-                                type="number"
-                                min="1"
-                                max="10"
-                                value={item.setsCount}
-                                onChange={(e) =>
-                                  updateModalItemField(item.exerciseId, 'setsCount', Number(e.target.value))
-                                }
-                                className="w-full bg-neutral-950 border border-neutral-700 rounded-lg py-1 text-center font-bold text-white text-xs focus:border-lime-400"
-                              />
-                            </div>
-                            <div>
-                              <span className="block mb-0.5">Reps</span>
-                              <input
-                                type="number"
-                                min="1"
-                                value={item.defaultReps}
-                                onChange={(e) =>
-                                  updateModalItemField(item.exerciseId, 'defaultReps', Number(e.target.value))
-                                }
-                                className="w-full bg-neutral-950 border border-neutral-700 rounded-lg py-1 text-center font-bold text-white text-xs focus:border-lime-400"
-                              />
-                            </div>
-                            <div>
-                              <span className="block mb-0.5">Kg Inicial</span>
-                              <input
-                                type="number"
-                                min="0"
-                                step="0.5"
-                                value={item.defaultWeight}
-                                onChange={(e) =>
-                                  updateModalItemField(item.exerciseId, 'defaultWeight', Number(e.target.value))
-                                }
-                                className="w-full bg-neutral-950 border border-neutral-700 rounded-lg py-1 text-center font-bold text-lime-400 text-xs focus:border-lime-400"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* SECCIÓN 2: BUSCADOR Y FILTROS PARA AGREGAR MÁS EJERCICIOS */}
-              <div className="space-y-1.5 pt-1">
-                <span className="text-xs font-bold text-neutral-300 block">
-                  Añadir ejercicios del catálogo:
-                </span>
-                <div className="relative">
-                  <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-2.5" />
-                  <input
-                    type="text"
-                    value={modalSearchQuery}
-                    onChange={(e) => setModalSearchQuery(e.target.value)}
-                    placeholder="Buscar por ejercicio o músculo..."
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl pl-8 pr-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-lime-400"
-                  />
-                </div>
-
-                <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-thin">
-                  {MUSCLE_FILTER_OPTIONS.map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => setModalMuscleFilter(m)}
-                      className={`px-2 py-0.5 rounded-lg text-[10px] font-bold whitespace-nowrap transition border ${
-                        modalMuscleFilter === m
-                          ? 'bg-lime-400 text-neutral-950 border-lime-400'
-                          : 'bg-neutral-950 border-neutral-800 text-neutral-400'
-                      }`}
-                    >
-                      {m}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Lista para marcar o desmarcar con checkbox */}
-              <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-                {filteredModalExercises.map((ex) => {
-                  const isSelected = modalItems.some((i) => i.exerciseId === ex.id)
-                  return (
-                    <div
-                      key={ex.id}
-                      onClick={() => toggleModalExercise(ex.id)}
-                      className={`p-2 rounded-xl border flex items-center justify-between cursor-pointer transition text-xs ${
-                        isSelected
-                          ? 'bg-lime-400/15 border-lime-400/60 text-white'
-                          : 'bg-neutral-950 border-neutral-800 text-neutral-300'
-                      }`}
-                    >
-                      <div className="truncate pr-2">
-                        <span className="font-bold block truncate">{ex.name}</span>
-                        <span className="text-[10px] text-lime-400">{ex.target_muscle}</span>
-                      </div>
-                      <div
-                        className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 border ${
-                          isSelected ? 'bg-lime-400 border-lime-400 text-neutral-950' : 'border-neutral-700'
-                        }`}
-                      >
-                        {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-
-            <div className="pt-2 border-t border-neutral-800 flex gap-2">
-              <button
-                onClick={handleSaveDay}
-                className="flex-1 py-2.5 bg-lime-400 text-neutral-950 font-bold text-xs rounded-xl"
-              >
-                {editingDayId ? 'Guardar Cambios' : 'Añadir Día'}
-              </button>
-              <button
-                onClick={() => setIsDayModalOpen(false)}
-                className="px-4 py-2.5 bg-neutral-800 text-neutral-300 text-xs rounded-xl"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ================= MODAL: CREAR PROGRAMA ================= */}
-      {isCreatingProgram && (
-        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-3xl p-5 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
-              <h3 className="text-base font-extrabold text-white flex items-center gap-1.5">
-                <FolderPlus className="w-4 h-4 text-lime-400" /> Crear Nueva Rutina
-              </h3>
-              <button onClick={() => setIsCreatingProgram(false)} className="p-1 bg-neutral-950 rounded-lg text-neutral-400">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div>
-              <label className="text-xs text-neutral-400 block mb-1">Nombre del Programa / Rutina *</label>
-              <input
-                type="text"
-                placeholder="Ej. Hipertrofia Octubre..."
-                value={newProgramName}
-                onChange={(e) => setNewProgramName(e.target.value)}
-                className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-lime-400"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs text-neutral-400 block mb-1">Descripción corta (Opcional)</label>
-              <input
-                type="text"
-                placeholder="Ej. 5 días divididos"
-                value={newProgramDesc}
-                onChange={(e) => setNewProgramDesc(e.target.value)}
-                className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-lime-400"
-              />
-            </div>
-
-            <div className="pt-2 flex gap-2">
-              <button
-                onClick={handleCreateProgram}
-                className="flex-1 py-2.5 bg-lime-400 text-neutral-950 font-bold text-xs rounded-xl"
-              >
-                Crear Rutina
-              </button>
-              <button
-                onClick={() => setIsCreatingProgram(false)}
-                className="px-4 py-2.5 bg-neutral-800 text-neutral-300 text-xs rounded-xl"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ================= VISTA 1: ENTRENAR (SESIÓN ACTIVA) ================= */}
+      {/* ================= 3. PESTAÑA: ENTRENAR ================= */}
       {activeTab === 'workout' && (
         <div>
           <header className="border-b border-neutral-800 pb-3.5 mb-4">
@@ -2155,7 +1421,7 @@ export default function ActiveWorkoutPage() {
         </div>
       )}
 
-      {/* ================= VISTA 2: HISTORIAL ================= */}
+      {/* ================= 4. PESTAÑA: HISTORIAL ================= */}
       {activeTab === 'history' && (
         <div className="space-y-4">
           <header className="border-b border-neutral-800 pb-4 mb-4">
@@ -2199,7 +1465,7 @@ export default function ActiveWorkoutPage() {
         </div>
       )}
 
-      {/* ================= VISTA 3: BIBLIOTECA COMPLETA CON FILTROS ================= */}
+      {/* ================= 5. PESTAÑA: BIBLIOTECA ANATÓMICA ================= */}
       {activeTab === 'library' && (
         <div className="space-y-4">
           <header className="border-b border-neutral-800 pb-3 mb-2">
@@ -2254,6 +1520,265 @@ export default function ActiveWorkoutPage() {
         </div>
       )}
 
+      {/* ================= MODAL: CREAR / EDITAR DÍA ================= */}
+      {isDayModalOpen && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-3xl p-5 shadow-2xl max-h-[92vh] flex flex-col">
+            <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
+              <h3 className="text-base font-extrabold text-white flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-lime-400" />
+                {editingDayId ? 'Editar Día' : 'Añadir Día'}
+              </h3>
+              <button
+                onClick={() => setIsDayModalOpen(false)}
+                className="p-1 bg-neutral-950 rounded-lg text-neutral-400"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto py-3 space-y-3 flex-1 pr-1">
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-span-1">
+                  <label className="text-[10px] font-bold text-neutral-400 block mb-1">Etiqueta</label>
+                  <input
+                    type="text"
+                    value={modalDayBadge}
+                    onChange={(e) => setModalDayBadge(e.target.value)}
+                    placeholder="Día 1"
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-lime-400"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-[10px] font-bold text-neutral-400 block mb-1">Nombre del Día *</label>
+                  <input
+                    type="text"
+                    value={modalDayTitle}
+                    onChange={(e) => setModalDayTitle(e.target.value)}
+                    placeholder="Ej. Torso A, Pierna..."
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-lime-400"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-neutral-400 block mb-1">Subtítulo / Músculos</label>
+                <input
+                  type="text"
+                  value={modalDaySubtitle}
+                  onChange={(e) => setModalDaySubtitle(e.target.value)}
+                  placeholder="Ej. Espalda, Pecho y Brazos"
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-lime-400"
+                />
+              </div>
+
+              {/* Ajuste manual de Series, Reps y Peso */}
+              {modalItems.length > 0 && (
+                <div className="space-y-2 bg-neutral-950 p-3 rounded-2xl border border-neutral-800">
+                  <span className="text-[11px] font-bold text-lime-400 uppercase tracking-wider block">
+                    Configuración de Series ({modalItems.length} ejercicios):
+                  </span>
+                  <div className="space-y-2.5 max-h-48 overflow-y-auto pr-1">
+                    {modalItems.map((item) => {
+                      const ex = catalog.find((c) => c.id === item.exerciseId)
+                      return (
+                        <div key={item.exerciseId} className="bg-neutral-900 p-2.5 rounded-xl border border-neutral-800/80 space-y-1.5">
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs font-bold text-white truncate max-w-[190px]">
+                              {ex?.name || item.exerciseId}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => toggleModalExercise(item.exerciseId)}
+                              className="text-neutral-500 hover:text-red-400"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-2 text-center text-[10px] text-neutral-400">
+                            <div>
+                              <span className="block mb-0.5">Series</span>
+                              <input
+                                type="number"
+                                min="1"
+                                max="10"
+                                value={item.setsCount}
+                                onChange={(e) =>
+                                  updateModalItemField(item.exerciseId, 'setsCount', Number(e.target.value))
+                                }
+                                className="w-full bg-neutral-950 border border-neutral-700 rounded-lg py-1 text-center font-bold text-white text-xs focus:border-lime-400"
+                              />
+                            </div>
+                            <div>
+                              <span className="block mb-0.5">Reps</span>
+                              <input
+                                type="number"
+                                min="1"
+                                value={item.defaultReps}
+                                onChange={(e) =>
+                                  updateModalItemField(item.exerciseId, 'defaultReps', Number(e.target.value))
+                                }
+                                className="w-full bg-neutral-950 border border-neutral-700 rounded-lg py-1 text-center font-bold text-white text-xs focus:border-lime-400"
+                              />
+                            </div>
+                            <div>
+                              <span className="block mb-0.5">Kg Inicial</span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.5"
+                                value={item.defaultWeight}
+                                onChange={(e) =>
+                                  updateModalItemField(item.exerciseId, 'defaultWeight', Number(e.target.value))
+                                }
+                                className="w-full bg-neutral-950 border border-neutral-700 rounded-lg py-1 text-center font-bold text-lime-400 text-xs focus:border-lime-400"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Filtro y buscador para añadir ejercicios */}
+              <div className="space-y-1.5 pt-1">
+                <span className="text-xs font-bold text-neutral-300 block">
+                  Añadir ejercicios del catálogo:
+                </span>
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    value={modalSearchQuery}
+                    onChange={(e) => setModalSearchQuery(e.target.value)}
+                    placeholder="Buscar por ejercicio o músculo..."
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl pl-8 pr-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-lime-400"
+                  />
+                </div>
+
+                <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-thin">
+                  {MUSCLE_FILTER_OPTIONS.map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setModalMuscleFilter(m)}
+                      className={`px-2 py-0.5 rounded-lg text-[10px] font-bold whitespace-nowrap transition border ${
+                        modalMuscleFilter === m
+                          ? 'bg-lime-400 text-neutral-950 border-lime-400'
+                          : 'bg-neutral-950 border-neutral-800 text-neutral-400'
+                      }`}
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Lista para marcar o desmarcar */}
+              <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                {filteredModalExercises.map((ex) => {
+                  const isSelected = modalItems.some((i) => i.exerciseId === ex.id)
+                  return (
+                    <div
+                      key={ex.id}
+                      onClick={() => toggleModalExercise(ex.id)}
+                      className={`p-2 rounded-xl border flex items-center justify-between cursor-pointer transition text-xs ${
+                        isSelected
+                          ? 'bg-lime-400/15 border-lime-400/60 text-white'
+                          : 'bg-neutral-950 border-neutral-800 text-neutral-300'
+                      }`}
+                    >
+                      <div className="truncate pr-2">
+                        <span className="font-bold block truncate">{ex.name}</span>
+                        <span className="text-[10px] text-lime-400">{ex.target_muscle}</span>
+                      </div>
+                      <div
+                        className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 border ${
+                          isSelected ? 'bg-lime-400 border-lime-400 text-neutral-950' : 'border-neutral-700'
+                        }`}
+                      >
+                        {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-neutral-800 flex gap-2">
+              <button
+                onClick={handleSaveDay}
+                className="flex-1 py-2.5 bg-lime-400 text-neutral-950 font-bold text-xs rounded-xl"
+              >
+                {editingDayId ? 'Guardar Cambios' : 'Añadir Día'}
+              </button>
+              <button
+                onClick={() => setIsDayModalOpen(false)}
+                className="px-4 py-2.5 bg-neutral-800 text-neutral-300 text-xs rounded-xl"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: CREAR PROGRAMA ================= */}
+      {isCreatingProgram && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-3xl p-5 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
+              <h3 className="text-base font-extrabold text-white flex items-center gap-1.5">
+                <FolderPlus className="w-4 h-4 text-lime-400" /> Crear Nueva Rutina
+              </h3>
+              <button onClick={() => setIsCreatingProgram(false)} className="p-1 bg-neutral-950 rounded-lg text-neutral-400">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div>
+              <label className="text-xs text-neutral-400 block mb-1">Nombre del Programa / Rutina *</label>
+              <input
+                type="text"
+                placeholder="Ej. Hipertrofia Octubre..."
+                value={newProgramName}
+                onChange={(e) => setNewProgramName(e.target.value)}
+                className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-lime-400"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs text-neutral-400 block mb-1">Descripción corta (Opcional)</label>
+              <input
+                type="text"
+                placeholder="Ej. 5 días divididos"
+                value={newProgramDesc}
+                onChange={(e) => setNewProgramDesc(e.target.value)}
+                className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-lime-400"
+              />
+            </div>
+
+            <div className="pt-2 flex gap-2">
+              <button
+                onClick={handleCreateProgram}
+                className="flex-1 py-2.5 bg-lime-400 text-neutral-950 font-bold text-xs rounded-xl"
+              >
+                Crear Rutina
+              </button>
+              <button
+                onClick={() => setIsCreatingProgram(false)}
+                className="px-4 py-2.5 bg-neutral-800 text-neutral-300 text-xs rounded-xl"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ================= DESCANSO FLOTANTE ================= */}
       {isRestActive && restSeconds !== null && (
         <aside className="fixed bottom-20 left-4 right-4 max-w-md mx-auto bg-neutral-900/95 border border-neutral-800 p-3.5 rounded-2xl flex items-center justify-between shadow-2xl z-40">
@@ -2268,23 +1793,31 @@ export default function ActiveWorkoutPage() {
         </aside>
       )}
 
-      {/* ================= NAVEGACIÓN INFERIOR ================= */}
+      {/* ================= BARRA DE NAVEGACIÓN INFERIOR (5 PESTAÑAS) ================= */}
       <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-neutral-950/95 border-t border-neutral-800/80 flex justify-around py-3 z-40">
         <button onClick={() => setActiveTab('home')} className={`flex flex-col items-center gap-1 ${activeTab === 'home' ? 'text-lime-400 font-bold' : 'text-neutral-500'}`}>
           <Home className="w-5 h-5" />
-          <span className="text-[11px]">Inicio</span>
+          <span className="text-[10px]">Inicio</span>
         </button>
+
         <button onClick={() => setActiveTab('workout')} className={`flex flex-col items-center gap-1 ${activeTab === 'workout' ? 'text-lime-400 font-bold' : 'text-neutral-500'}`}>
           <Dumbbell className="w-5 h-5" />
-          <span className="text-[11px]">Entrenar</span>
+          <span className="text-[10px]">Entrenar</span>
         </button>
+
+        <button onClick={() => setActiveTab('routines')} className={`flex flex-col items-center gap-1 ${activeTab === 'routines' ? 'text-lime-400 font-bold' : 'text-neutral-500'}`}>
+          <ClipboardList className="w-5 h-5" />
+          <span className="text-[10px]">Rutinas</span>
+        </button>
+
         <button onClick={() => setActiveTab('history')} className={`flex flex-col items-center gap-1 ${activeTab === 'history' ? 'text-lime-400 font-bold' : 'text-neutral-500'}`}>
           <History className="w-5 h-5" />
-          <span className="text-[11px]">Historial</span>
+          <span className="text-[10px]">Historial</span>
         </button>
+
         <button onClick={() => setActiveTab('library')} className={`flex flex-col items-center gap-1 ${activeTab === 'library' ? 'text-lime-400 font-bold' : 'text-neutral-500'}`}>
           <BookOpen className="w-5 h-5" />
-          <span className="text-[11px]">Biblioteca</span>
+          <span className="text-[10px]">Biblioteca</span>
         </button>
       </nav>
 
