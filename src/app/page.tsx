@@ -34,9 +34,14 @@ import {
   ClipboardList,
   Calculator,
   Download,
+  RefreshCw,
+  MessageSquare,
+  Volume2,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { ANATOMICAL_EXERCISES, CatalogExercise } from '@/data/exercises'
+
+type SetType = 'normal' | 'dropset' | 'restpause' | 'failure'
 
 interface ExerciseSet {
   id: string
@@ -46,6 +51,7 @@ interface ExerciseSet {
   rir: number
   isCompleted: boolean
   isPr: boolean
+  setType?: SetType
 }
 
 interface WorkoutExercise {
@@ -57,6 +63,7 @@ interface WorkoutExercise {
   anatomicalImageUrl: string
   previousBest?: string
   note?: string
+  supersetGroup?: string // Ej: 'A', 'B' para biseries A1, A2
   sets: ExerciseSet[]
 }
 
@@ -75,6 +82,7 @@ interface RoutineTemplateItem {
   defaultRir: number
   note?: string
   previousBest?: string
+  supersetGroup?: string
 }
 
 interface ProgramDay {
@@ -91,6 +99,40 @@ interface WorkoutProgram {
   name: string
   description?: string
   days: ProgramDay[]
+}
+
+// Reproductor de sonido nativo sin dependencias externas
+function playBeepSound() {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
+    if (!AudioContextClass) return
+    const ctx = new AudioContextClass()
+
+    const playTone = (freq: number, delayMs: number, durationSec: number) => {
+      setTimeout(() => {
+        const osc = ctx.createOscillator()
+        const gain = ctx.createGain()
+        osc.type = 'sine'
+        osc.frequency.setValueAtTime(freq, ctx.currentTime)
+        gain.gain.setValueAtTime(0.15, ctx.currentTime)
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + durationSec)
+        osc.connect(gain)
+        gain.connect(ctx.destination)
+        osc.start()
+        osc.stop(ctx.currentTime + durationSec)
+      }, delayMs)
+    }
+
+    // Doble pitido (Beep - Beep)
+    playTone(880, 0, 0.18)
+    playTone(880, 240, 0.25)
+
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate([200, 100, 250])
+    }
+  } catch (e) {
+    console.warn('AudioContext no soportado o bloqueado:', e)
+  }
 }
 
 function AnatomicalImage({
@@ -177,8 +219,8 @@ const DEFAULT_5_DAY_PROGRAM: WorkoutProgram = {
         { exerciseId: 'ex-20', setsCount: 3, defaultWeight: 80, defaultReps: 8, defaultRir: 1, note: 'Retracción firme' },
         { exerciseId: 'ex-4', setsCount: 3, defaultWeight: 65, defaultReps: 10, defaultRir: 1, note: 'Remo T' },
         { exerciseId: 'ex-35', setsCount: 3, defaultWeight: 12, defaultReps: 12, defaultRir: 1, note: 'Laterales' },
-        { exerciseId: 'ex-48', setsCount: 2, defaultWeight: 32.5, defaultReps: 10, defaultRir: 1, note: 'Predicador' },
-        { exerciseId: 'ex-58', setsCount: 2, defaultWeight: 25, defaultReps: 12, defaultRir: 1, note: 'Overhead' },
+        { exerciseId: 'ex-48', setsCount: 2, defaultWeight: 32.5, defaultReps: 10, defaultRir: 1, note: 'Predicador', supersetGroup: 'A' },
+        { exerciseId: 'ex-58', setsCount: 2, defaultWeight: 25, defaultReps: 12, defaultRir: 1, note: 'Overhead', supersetGroup: 'A' },
       ],
     },
     {
@@ -206,8 +248,8 @@ const DEFAULT_5_DAY_PROGRAM: WorkoutProgram = {
         { exerciseId: 'ex-6', setsCount: 3, defaultWeight: 65, defaultReps: 10, defaultRir: 1, note: 'Jalón polea' },
         { exerciseId: 'ex-12', setsCount: 3, defaultWeight: 60, defaultReps: 10, defaultRir: 1, note: 'Remo Gironda' },
         { exerciseId: 'ex-43', setsCount: 3, defaultWeight: 30, defaultReps: 15, defaultRir: 1, note: 'Face pull' },
-        { exerciseId: 'ex-52', setsCount: 2, defaultWeight: 16, defaultReps: 10, defaultRir: 1, note: 'Martillo' },
-        { exerciseId: 'ex-59', setsCount: 2, defaultWeight: 30, defaultReps: 12, defaultRir: 1, note: 'Cuerda tríceps' },
+        { exerciseId: 'ex-52', setsCount: 2, defaultWeight: 16, defaultReps: 10, defaultRir: 1, note: 'Martillo', supersetGroup: 'B' },
+        { exerciseId: 'ex-59', setsCount: 2, defaultWeight: 30, defaultReps: 12, defaultRir: 1, note: 'Cuerda tríceps', supersetGroup: 'B' },
       ],
     },
     {
@@ -230,10 +272,10 @@ const DEFAULT_5_DAY_PROGRAM: WorkoutProgram = {
       subtitle: 'Bíceps estiramiento, tríceps tras nuca y laterales al fallo',
       estimatedDuration: '55 min',
       items: [
-        { exerciseId: 'ex-48', setsCount: 3, defaultWeight: 32.5, defaultReps: 10, defaultRir: 1, note: 'Scott Z' },
-        { exerciseId: 'ex-58', setsCount: 3, defaultWeight: 25, defaultReps: 12, defaultRir: 1, note: 'Overhead polea' },
-        { exerciseId: 'ex-51', setsCount: 3, defaultWeight: 14, defaultReps: 10, defaultRir: 1, note: 'Curl 60°' },
-        { exerciseId: 'ex-61', setsCount: 3, defaultWeight: 30, defaultReps: 10, defaultRir: 1, note: 'Press francés' },
+        { exerciseId: 'ex-48', setsCount: 3, defaultWeight: 32.5, defaultReps: 10, defaultRir: 1, note: 'Scott Z', supersetGroup: 'A' },
+        { exerciseId: 'ex-58', setsCount: 3, defaultWeight: 25, defaultReps: 12, defaultRir: 1, note: 'Overhead polea', supersetGroup: 'A' },
+        { exerciseId: 'ex-51', setsCount: 3, defaultWeight: 14, defaultReps: 10, defaultRir: 1, note: 'Curl 60°', supersetGroup: 'B' },
+        { exerciseId: 'ex-61', setsCount: 3, defaultWeight: 30, defaultReps: 10, defaultRir: 1, note: 'Press francés', supersetGroup: 'B' },
         { exerciseId: 'ex-35', setsCount: 4, defaultWeight: 12, defaultReps: 15, defaultRir: 0, note: 'Laterales RIR 0' },
       ],
     },
@@ -253,7 +295,7 @@ export default function ActiveWorkoutPage() {
   const [activeTab, setActiveTab] = useState<'home' | 'workout' | 'routines' | 'history' | 'library'>('home')
   const [bodyWeightKg, setBodyWeightKg] = useState<number>(80)
 
-  // Catálogo extendible con ejercicios personalizados
+  // Catálogo extendible
   const [catalog, setCatalog] = useState<CatalogExercise[]>(ANATOMICAL_EXERCISES)
   const [libraryMuscleFilter, setLibraryMuscleFilter] = useState('Todos')
   const [librarySearchQuery, setLibrarySearchQuery] = useState('')
@@ -272,12 +314,11 @@ export default function ActiveWorkoutPage() {
   const [selectedProgramId, setSelectedProgramId] = useState<string>(DEFAULT_5_DAY_PROGRAM.id)
   const [activeDayIndex, setActiveDayIndex] = useState<number>(0)
 
-  // Modal Crear Programa
+  // Modales Programas y Días
   const [isCreatingProgram, setIsCreatingProgram] = useState(false)
   const [newProgramName, setNewProgramName] = useState('')
   const [newProgramDesc, setNewProgramDesc] = useState('')
 
-  // Modal Agregar/Editar Día
   const [isDayModalOpen, setIsDayModalOpen] = useState(false)
   const [editingDayId, setEditingDayId] = useState<string | null>(null)
   const [modalDayBadge, setModalDayBadge] = useState('Día 1')
@@ -287,10 +328,13 @@ export default function ActiveWorkoutPage() {
   const [modalMuscleFilter, setModalMuscleFilter] = useState('Todos')
   const [modalSearchQuery, setModalSearchQuery] = useState('')
 
-  // Modal para incorporar ejercicio a la sesión activa en vivo
+  // Modal Agregar ejercicio al entrenamiento en vivo
   const [isAddLiveExerciseOpen, setIsAddLiveExerciseOpen] = useState(false)
   const [liveSearchQuery, setLiveSearchQuery] = useState('')
   const [liveMuscleFilter, setLiveMuscleFilter] = useState('Todos')
+
+  // Modal Sustitución directa de ejercicio en vivo
+  const [substitutingExerciseId, setSubstitutingExerciseId] = useState<string | null>(null)
 
   // Sesión y Cronómetro
   const [workoutName, setWorkoutName] = useState('Torso A (Fuerza e Hipertrofia)')
@@ -312,14 +356,14 @@ export default function ActiveWorkoutPage() {
   const [isSummaryOpen, setIsSummaryOpen] = useState(false)
   const historyLoadedRef = useRef(false)
 
-  // Calculadora 1RM interactiva en panel de Inicio
+  // Calculadora 1RM interactiva
   const [calcWeight, setCalcWeight] = useState<number>(80)
   const [calcReps, setCalcReps] = useState<number>(8)
 
   // Ejercicios activos
   const [exercises, setExercises] = useState<WorkoutExercise[]>([])
 
-  // Cargar ejercicios personalizados adicionales de localStorage
+  // Cargar ejercicios de localStorage
   useEffect(() => {
     try {
       const customSaved = localStorage.getItem('user_custom_library_exercises')
@@ -332,11 +376,11 @@ export default function ActiveWorkoutPage() {
         }
       }
     } catch (e) {
-      console.warn('Error leyendo ejercicios propios:', e)
+      console.warn('Error leyendo biblioteca personalizada:', e)
     }
   }, [])
 
-  // Inicializar ejercicios por defecto desde el Día 1
+  // Inicializar ejercicios de Día 1
   useEffect(() => {
     if (exercises.length === 0 && DEFAULT_5_DAY_PROGRAM.days[0]) {
       const d1 = DEFAULT_5_DAY_PROGRAM.days[0]
@@ -351,6 +395,7 @@ export default function ActiveWorkoutPage() {
           anatomicalImageUrl: catEx.anatomical_image_url,
           previousBest: `${item.defaultWeight} kg × ${item.defaultReps}`,
           note: item.note || '',
+          supersetGroup: item.supersetGroup || '',
           sets: Array.from({ length: item.setsCount }).map((_, sIdx) => ({
             id: `set-init-${idx}-${sIdx}`,
             setNumber: sIdx + 1,
@@ -359,6 +404,7 @@ export default function ActiveWorkoutPage() {
             rir: item.defaultRir,
             isCompleted: false,
             isPr: false,
+            setType: 'normal',
           })),
         }
       })
@@ -367,15 +413,14 @@ export default function ActiveWorkoutPage() {
     }
   }, [catalog, exercises.length])
 
-  // Carga y recuperación de programas de localStorage
+  // Carga de rutinas de localStorage
   useEffect(() => {
     try {
       const saved =
+        localStorage.getItem('user_workout_programs_v7') ||
         localStorage.getItem('user_workout_programs_v6') ||
         localStorage.getItem('user_workout_programs_v5') ||
-        localStorage.getItem('user_workout_programs_v4') ||
-        localStorage.getItem('user_workout_programs_v3') ||
-        localStorage.getItem('user_workout_programs_v2')
+        localStorage.getItem('user_workout_programs_v4')
 
       if (saved) {
         const parsed = JSON.parse(saved)
@@ -401,7 +446,7 @@ export default function ActiveWorkoutPage() {
 
           setProgramsList(formatted)
           setSelectedProgramId(formatted[formatted.length - 1].id)
-          localStorage.setItem('user_workout_programs_v6', JSON.stringify(formatted))
+          localStorage.setItem('user_workout_programs_v7', JSON.stringify(formatted))
         }
       }
     } catch (e) {
@@ -412,7 +457,7 @@ export default function ActiveWorkoutPage() {
   const savePrograms = (newList: WorkoutProgram[]) => {
     setProgramsList(newList)
     try {
-      localStorage.setItem('user_workout_programs_v6', JSON.stringify(newList))
+      localStorage.setItem('user_workout_programs_v7', JSON.stringify(newList))
     } catch (e) {
       console.warn('Error guardando programas:', e)
     }
@@ -513,7 +558,6 @@ export default function ActiveWorkoutPage() {
     }
   }, [activeTab, user])
 
-  // Desplegar detalles de series en historial
   const toggleWorkoutDetails = async (workoutId: string) => {
     if (expandedWorkoutId === workoutId) {
       setExpandedWorkoutId(null)
@@ -543,7 +587,7 @@ export default function ActiveWorkoutPage() {
     }
   }
 
-  // Cronómetro
+  // Cronómetro de sesión
   useEffect(() => {
     let interval: NodeJS.Timeout
     if (isSessionRunning) {
@@ -552,13 +596,20 @@ export default function ActiveWorkoutPage() {
     return () => clearInterval(interval)
   }, [isSessionRunning])
 
-  // Descanso
+  // Temporizador de descanso con pitido final
   useEffect(() => {
     let interval: NodeJS.Timeout
     if (isRestActive && restSeconds !== null && restSeconds > 0) {
-      interval = setInterval(() => setRestSeconds((prev) => (prev ? prev - 1 : 0)), 1000)
-    } else if (restSeconds === 0) {
-      setIsRestActive(false)
+      interval = setInterval(() => {
+        setRestSeconds((prev) => {
+          if (prev === 1) {
+            playBeepSound()
+            setIsRestActive(false)
+            return 0
+          }
+          return prev ? prev - 1 : 0
+        })
+      }, 1000)
     }
     return () => clearInterval(interval)
   }, [isRestActive, restSeconds])
@@ -579,17 +630,31 @@ export default function ActiveWorkoutPage() {
     return calculate1RM(calcWeight, calcReps)
   }, [calcWeight, calcReps])
 
+  // Completar serie con lógica de biseries
   const toggleSetComplete = (exerciseId: string, setId: string) => {
     if (!isSessionRunning) setIsSessionRunning(true)
-    setExercises((prev) =>
-      prev.map((ex) => {
+
+    setExercises((prev) => {
+      const currentEx = prev.find((e) => e.id === exerciseId)
+      const currentSuperset = currentEx?.supersetGroup
+
+      // Si tiene superserie, verificar si es el último ejercicio del grupo
+      let shouldTriggerRest = true
+      if (currentSuperset) {
+        const groupExercises = prev.filter((e) => e.supersetGroup === currentSuperset)
+        const lastExerciseInGroup = groupExercises[groupExercises.length - 1]
+        // Solo descansa si completamos la serie del último ejercicio de la biserie
+        shouldTriggerRest = lastExerciseInGroup?.id === exerciseId
+      }
+
+      return prev.map((ex) => {
         if (ex.id !== exerciseId) return ex
         return {
           ...ex,
           sets: ex.sets.map((set) => {
             if (set.id !== setId) return set
             const nextCompleted = !set.isCompleted
-            if (nextCompleted) {
+            if (nextCompleted && shouldTriggerRest) {
               setRestSeconds(90)
               setIsRestActive(true)
             }
@@ -597,7 +662,7 @@ export default function ActiveWorkoutPage() {
           }),
         }
       })
-    )
+    })
   }
 
   const updateSetValue = (
@@ -617,6 +682,42 @@ export default function ActiveWorkoutPage() {
     )
   }
 
+  const cycleSetType = (exerciseId: string, setId: string) => {
+    const types: SetType[] = ['normal', 'dropset', 'restpause', 'failure']
+    setExercises((prev) =>
+      prev.map((ex) => {
+        if (ex.id !== exerciseId) return ex
+        return {
+          ...ex,
+          sets: ex.sets.map((s) => {
+            if (s.id !== setId) return s
+            const currentIndex = types.indexOf(s.setType || 'normal')
+            const nextType = types[(currentIndex + 1) % types.length]
+            return { ...s, setType: nextType }
+          }),
+        }
+      })
+    )
+  }
+
+  const updateExerciseNote = (exerciseId: string, noteText: string) => {
+    setExercises((prev) =>
+      prev.map((ex) => (ex.id === exerciseId ? { ...ex, note: noteText } : ex))
+    )
+  }
+
+  const toggleSupersetGroup = (exerciseId: string) => {
+    const groups = ['', 'A', 'B', 'C']
+    setExercises((prev) =>
+      prev.map((ex) => {
+        if (ex.id !== exerciseId) return ex
+        const currentIndex = groups.indexOf(ex.supersetGroup || '')
+        const nextGroup = groups[(currentIndex + 1) % groups.length]
+        return { ...ex, supersetGroup: nextGroup }
+      })
+    )
+  }
+
   const addSetToExercise = (exerciseId: string) => {
     setExercises((prev) =>
       prev.map((ex) => {
@@ -630,6 +731,7 @@ export default function ActiveWorkoutPage() {
           rir: 1,
           isCompleted: false,
           isPr: false,
+          setType: 'normal',
         }
         return { ...ex, sets: [...ex.sets, newSet] }
       })
@@ -648,14 +750,12 @@ export default function ActiveWorkoutPage() {
     )
   }
 
-  // Confirmación al borrar ejercicio en sesión en vivo
   const removeExerciseWithConfirm = (exerciseId: string, exerciseName: string) => {
     if (confirm(`¿Estás seguro de quitar "${exerciseName}" de esta sesión?`)) {
       setExercises((prev) => prev.filter((ex) => ex.id !== exerciseId))
     }
   }
 
-  // Reordenar ejercicios en sesión en vivo
   const moveLiveExercise = (index: number, direction: 'up' | 'down') => {
     const targetIndex = direction === 'up' ? index - 1 : index + 1
     if (targetIndex < 0 || targetIndex >= exercises.length) return
@@ -666,7 +766,6 @@ export default function ActiveWorkoutPage() {
     setExercises(reordered)
   }
 
-  // Reordenar ejercicios en el modal de edición de día
   const moveModalItem = (index: number, direction: 'up' | 'down') => {
     const targetIndex = direction === 'up' ? index - 1 : index + 1
     if (targetIndex < 0 || targetIndex >= modalItems.length) return
@@ -677,7 +776,27 @@ export default function ActiveWorkoutPage() {
     setModalItems(reordered)
   }
 
-  // Agregar ejercicio al vuelo en la sesión activa
+  // Sustituir ejercicio en vivo (solo para esta sesión)
+  const handleSubstituteExercise = (replacementEx: CatalogExercise) => {
+    if (!substitutingExerciseId) return
+
+    setExercises((prev) =>
+      prev.map((ex) => {
+        if (ex.id !== substitutingExerciseId) return ex
+        return {
+          ...ex,
+          exerciseId: replacementEx.id,
+          name: replacementEx.name,
+          targetMuscle: replacementEx.target_muscle,
+          secondaryMuscle: replacementEx.secondary_muscle,
+          anatomicalImageUrl: replacementEx.anatomical_image_url,
+          note: ex.note ? `${ex.note} (Sustituido)` : 'Sustituido en sesión',
+        }
+      })
+    )
+    setSubstitutingExerciseId(null)
+  }
+
   const handleAddExerciseToLiveWorkout = (catEx: CatalogExercise) => {
     const newEx: WorkoutExercise = {
       id: `wex-live-${Date.now()}`,
@@ -687,21 +806,20 @@ export default function ActiveWorkoutPage() {
       secondaryMuscle: catEx.secondary_muscle,
       anatomicalImageUrl: catEx.anatomical_image_url,
       previousBest: 'Registrar peso',
-      note: '',
+      note: 'Añadido extra en sesión',
       sets: [
-        { id: `s-live-1`, setNumber: 1, weight: 30, reps: 10, rir: 2, isCompleted: false, isPr: false },
-        { id: `s-live-2`, setNumber: 2, weight: 30, reps: 10, rir: 1, isCompleted: false, isPr: false },
-        { id: `s-live-3`, setNumber: 3, weight: 30, reps: 10, rir: 1, isCompleted: false, isPr: false },
+        { id: `s-live-1`, setNumber: 1, weight: 30, reps: 10, rir: 2, isCompleted: false, isPr: false, setType: 'normal' },
+        { id: `s-live-2`, setNumber: 2, weight: 30, reps: 10, rir: 1, isCompleted: false, isPr: false, setType: 'normal' },
+        { id: `s-live-3`, setNumber: 3, weight: 30, reps: 10, rir: 1, isCompleted: false, isPr: false, setType: 'normal' },
       ],
     }
     setExercises((prev) => [...prev, newEx])
     setIsAddLiveExerciseOpen(false)
   }
 
-  // Guardar nuevo ejercicio en Biblioteca
   const handleCreateCustomCatalogExercise = () => {
     if (!newExName.trim()) {
-      alert('Por favor ingresa el nombre del ejercicio.')
+      alert('Ingresa el nombre del ejercicio.')
       return
     }
 
@@ -736,7 +854,6 @@ export default function ActiveWorkoutPage() {
     setNewExUrl('')
   }
 
-  // Iniciar día seleccionado
   const handleStartDay = (day: ProgramDay) => {
     const builtExercises: WorkoutExercise[] = day.items.map((item, idx) => {
       const catEx = catalog.find((c) => c.id === item.exerciseId) || catalog[0]
@@ -749,6 +866,7 @@ export default function ActiveWorkoutPage() {
         rir: item.defaultRir,
         isCompleted: false,
         isPr: sIdx === item.setsCount - 1,
+        setType: 'normal',
       }))
 
       return {
@@ -760,6 +878,7 @@ export default function ActiveWorkoutPage() {
         anatomicalImageUrl: catEx.anatomical_image_url,
         previousBest: item.previousBest || `${item.defaultWeight} kg × ${item.defaultReps}`,
         note: item.note || '',
+        supersetGroup: item.supersetGroup || '',
         sets,
       }
     })
@@ -771,7 +890,6 @@ export default function ActiveWorkoutPage() {
     setActiveTab('workout')
   }
 
-  // Descargar tablilla de rutina actual en formato texto
   const downloadRoutinePlan = () => {
     if (!currentProgram) return
     let textContent = `=====================================\n`
@@ -787,6 +905,7 @@ export default function ActiveWorkoutPage() {
         const ex = catalog.find((c) => c.id === item.exerciseId)
         textContent += `${iIdx + 1}. ${ex?.name || item.exerciseId}\n`
         textContent += `   Series: ${item.setsCount} | Reps: ${item.defaultReps} | Peso: ${item.defaultWeight} kg\n`
+        if (item.supersetGroup) textContent += `   SuperSerie: Grupo ${item.supersetGroup}\n`
         if (item.note) textContent += `   Nota: ${item.note}\n`
       })
       textContent += `\n`
@@ -878,6 +997,7 @@ export default function ActiveWorkoutPage() {
           defaultWeight: 40,
           defaultRir: 1,
           note: '',
+          supersetGroup: '',
         },
       ])
     }
@@ -892,6 +1012,18 @@ export default function ActiveWorkoutPage() {
       modalItems.map((item) =>
         item.exerciseId === exId ? { ...item, [field]: val } : item
       )
+    )
+  }
+
+  const toggleModalItemSuperset = (exId: string) => {
+    const groups = ['', 'A', 'B', 'C']
+    setModalItems(
+      modalItems.map((item) => {
+        if (item.exerciseId !== exId) return item
+        const curIdx = groups.indexOf(item.supersetGroup || '')
+        const next = groups[(curIdx + 1) % groups.length]
+        return { ...item, supersetGroup: next }
+      })
     )
   }
 
@@ -1135,7 +1267,7 @@ export default function ActiveWorkoutPage() {
 
   return (
     <main className="min-h-screen bg-neutral-950 text-neutral-100 p-4 max-w-md mx-auto pb-28">
-      {/* ================= 1. INICIO (CON MÁS HERRAMIENTAS Y ESPACIO APROVECHADO) ================= */}
+      {/* ================= 1. INICIO ================= */}
       {activeTab === 'home' && (
         <div className="space-y-4">
           <header className="flex items-center justify-between border-b border-neutral-800 pb-3">
@@ -1311,7 +1443,7 @@ export default function ActiveWorkoutPage() {
         </div>
       )}
 
-      {/* ================= 2. PESTAÑA: RUTINAS ================= */}
+      {/* ================= 2. RUTINAS ================= */}
       {activeTab === 'routines' && (
         <div className="space-y-4">
           <header className="flex items-center justify-between border-b border-neutral-800 pb-3">
@@ -1425,7 +1557,9 @@ export default function ActiveWorkoutPage() {
                             <div
                               key={idx}
                               onClick={() => setSelectedPreview(exInfo)}
-                              className="flex items-center justify-between bg-neutral-900 border border-neutral-800 p-2 rounded-xl cursor-pointer"
+                              className={`flex items-center justify-between bg-neutral-900 border p-2 rounded-xl cursor-pointer ${
+                                item.supersetGroup ? 'border-l-4 border-l-lime-400 border-neutral-800' : 'border-neutral-800'
+                              }`}
                             >
                               <div className="flex items-center gap-2.5 min-w-0">
                                 <div className="w-10 h-11 rounded-lg bg-white p-0.5 border border-neutral-700 shrink-0 overflow-hidden">
@@ -1437,8 +1571,13 @@ export default function ActiveWorkoutPage() {
                                   />
                                 </div>
                                 <div className="min-w-0">
-                                  <div className="text-xs font-bold text-white truncate">
+                                  <div className="text-xs font-bold text-white truncate flex items-center gap-1.5">
                                     {idx + 1}. {exInfo.name}
+                                    {item.supersetGroup && (
+                                      <span className="text-[9px] uppercase font-mono px-1 rounded bg-lime-400/20 text-lime-400">
+                                        SuperSerie {item.supersetGroup}
+                                      </span>
+                                    )}
                                   </div>
                                   <div className="text-[10px] text-lime-400 truncate">
                                     {exInfo.target_muscle}
@@ -1484,7 +1623,7 @@ export default function ActiveWorkoutPage() {
         </div>
       )}
 
-      {/* ================= 3. PESTAÑA: ENTRENAR (CON REORDENAR Y REINCORPORAR EJERCICIO) ================= */}
+      {/* ================= 3. ENTRENAR (CON NOTAS, SUSTITUCIÓN Y BISERIES VISUALES) ================= */}
       {activeTab === 'workout' && (
         <div>
           <header className="border-b border-neutral-800 pb-3.5 mb-4">
@@ -1536,10 +1675,16 @@ export default function ActiveWorkoutPage() {
           <div className="space-y-4">
             {exercises.map((ex, index) => {
               const best1RM = Math.max(...ex.sets.map((s) => calculate1RM(s.weight, s.reps)), 0)
+              const hasSuperset = Boolean(ex.supersetGroup)
 
               return (
-                <section key={ex.id} className="bg-neutral-900 border border-neutral-800/80 rounded-2xl p-4 shadow-xl">
-                  <div className="flex justify-between items-start mb-3">
+                <section
+                  key={ex.id}
+                  className={`bg-neutral-900 border rounded-2xl p-4 shadow-xl transition ${
+                    hasSuperset ? 'border-l-4 border-l-lime-400 border-neutral-800' : 'border-neutral-800/80'
+                  }`}
+                >
+                  <div className="flex justify-between items-start mb-2.5">
                     <div className="flex items-center gap-3">
                       <div
                         onClick={() => setSelectedPreview(catalog.find((c) => c.id === ex.exerciseId) || null)}
@@ -1554,7 +1699,15 @@ export default function ActiveWorkoutPage() {
                       </div>
 
                       <div>
-                        <h2 className="text-base font-bold text-white leading-tight">{ex.name}</h2>
+                        <div className="flex items-center gap-1.5">
+                          {hasSuperset && (
+                            <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-lime-400 text-neutral-950 font-mono">
+                              BISERIE {ex.supersetGroup}
+                            </span>
+                          )}
+                          <h2 className="text-base font-bold text-white leading-tight">{ex.name}</h2>
+                        </div>
+
                         <div className="flex flex-wrap items-center gap-1.5 mt-1">
                           <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-neutral-800 text-lime-400 border border-neutral-700/60">
                             {ex.targetMuscle}
@@ -1564,17 +1717,33 @@ export default function ActiveWorkoutPage() {
                               1RM: {best1RM} kg
                             </span>
                           )}
+                          {/* BOTÓN VINCULAR SUPER-SERIE */}
+                          <button
+                            onClick={() => toggleSupersetGroup(ex.id)}
+                            className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-neutral-950 hover:bg-neutral-800 text-neutral-400 hover:text-white border border-neutral-800"
+                            title="Vincular a superserie A, B, C..."
+                          >
+                            🔗 {ex.supersetGroup ? `Grupo ${ex.supersetGroup}` : 'Superserie'}
+                          </button>
                         </div>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-1">
-                      {/* BOTONES PARA REORDENAR EJERCICIOS */}
+                      {/* SUSTITUIR EJERCICIO DIRECTO */}
+                      <button
+                        onClick={() => setSubstitutingExerciseId(ex.id)}
+                        className="p-1 bg-neutral-950 hover:bg-neutral-800 text-neutral-400 hover:text-lime-400 rounded-lg transition"
+                        title="Sustituir por otro ejercicio"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                      </button>
+                      {/* REORDENAR FLECHAS */}
                       <button
                         onClick={() => moveLiveExercise(index, 'up')}
                         disabled={index === 0}
                         className="p-1 bg-neutral-950 hover:bg-neutral-800 disabled:opacity-30 text-neutral-400 rounded-lg transition"
-                        title="Subir posición"
+                        title="Subir"
                       >
                         <ArrowUp className="w-3.5 h-3.5" />
                       </button>
@@ -1582,22 +1751,37 @@ export default function ActiveWorkoutPage() {
                         onClick={() => moveLiveExercise(index, 'down')}
                         disabled={index === exercises.length - 1}
                         className="p-1 bg-neutral-950 hover:bg-neutral-800 disabled:opacity-30 text-neutral-400 rounded-lg transition"
-                        title="Bajar posición"
+                        title="Bajar"
                       >
                         <ArrowDown className="w-3.5 h-3.5" />
                       </button>
-                      {/* BOTÓN CON CONFIRMACIÓN AL BORRAR */}
+                      {/* BORRAR CON CONFIRMACIÓN */}
                       <button
                         onClick={() => removeExerciseWithConfirm(ex.id, ex.name)}
                         className="p-1 bg-neutral-950 hover:bg-red-950/60 text-neutral-500 hover:text-red-400 rounded-lg transition ml-1"
-                        title="Quitar ejercicio"
+                        title="Quitar"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-12 text-[11px] text-neutral-400 uppercase font-semibold mb-2 px-1 text-center">
+                  {/* CAMPO DE NOTA OPCIONAL POR EJERCICIO */}
+                  <div className="mb-2">
+                    <div className="flex items-center gap-1.5">
+                      <MessageSquare className="w-3 h-3 text-neutral-500" />
+                      <input
+                        type="text"
+                        placeholder="+ Añadir nota (ej. biserie con laterales, máquina pesada...)"
+                        value={ex.note || ''}
+                        onChange={(e) => updateExerciseNote(ex.id, e.target.value)}
+                        className="w-full bg-transparent text-[11px] text-neutral-400 focus:text-white placeholder-neutral-600 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* TABLA DE SERIES */}
+                  <div className="grid grid-cols-12 text-[10px] text-neutral-400 uppercase font-semibold mb-1 px-1 text-center">
                     <span className="col-span-2 text-left">Serie</span>
                     <span className="col-span-3">Kg</span>
                     <span className="col-span-3">Reps</span>
@@ -1605,7 +1789,7 @@ export default function ActiveWorkoutPage() {
                     <span className="col-span-2 text-right">Listo</span>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     {ex.sets.map((set) => (
                       <div
                         key={set.id}
@@ -1615,11 +1799,35 @@ export default function ActiveWorkoutPage() {
                             : 'bg-neutral-800/60 border border-neutral-700/60'
                         }`}
                       >
-                        <div className="col-span-2 font-bold text-sm text-neutral-300 flex items-center gap-1">
-                          <button onClick={() => removeSetFromExercise(ex.id, set.id)} className="hover:text-red-400 transition">
-                            #{set.setNumber}
+                        {/* Selector de Tipo de Serie (Normal / DropSet / RestPause / Al Fallo) */}
+                        <div className="col-span-2 flex flex-col justify-center">
+                          <div className="flex items-center gap-1 font-bold text-xs text-neutral-300">
+                            <button onClick={() => removeSetFromExercise(ex.id, set.id)} className="hover:text-red-400 transition">
+                              #{set.setNumber}
+                            </button>
+                            {set.isPr && <Trophy className="w-3 h-3 text-yellow-400 inline" />}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => cycleSetType(ex.id, set.id)}
+                            className={`text-[8px] uppercase font-mono px-1 py-0.5 rounded text-left mt-0.5 truncate ${
+                              set.setType === 'dropset'
+                                ? 'bg-orange-500/20 text-orange-400'
+                                : set.setType === 'restpause'
+                                ? 'bg-blue-500/20 text-blue-400'
+                                : set.setType === 'failure'
+                                ? 'bg-red-500/20 text-red-400'
+                                : 'text-neutral-500'
+                            }`}
+                          >
+                            {set.setType === 'dropset'
+                              ? 'Drop'
+                              : set.setType === 'restpause'
+                              ? 'R-Pause'
+                              : set.setType === 'failure'
+                              ? 'Fallo'
+                              : 'Normal'}
                           </button>
-                          {set.isPr && <Trophy className="w-3.5 h-3.5 text-yellow-400 inline" />}
                         </div>
 
                         <div className="col-span-3">
@@ -1689,7 +1897,7 @@ export default function ActiveWorkoutPage() {
 
                   <button
                     onClick={() => addSetToExercise(ex.id)}
-                    className="mt-3 w-full py-2 rounded-xl border border-dashed border-neutral-700 hover:border-neutral-500 flex items-center justify-center gap-1 text-xs font-semibold text-neutral-300 transition"
+                    className="mt-2.5 w-full py-2 rounded-xl border border-dashed border-neutral-700 hover:border-neutral-500 flex items-center justify-center gap-1 text-xs font-semibold text-neutral-300 transition"
                   >
                     <Plus className="w-3.5 h-3.5" /> Añadir Serie
                   </button>
@@ -1697,7 +1905,6 @@ export default function ActiveWorkoutPage() {
               )
             })}
 
-            {/* BOTÓN PARA REINCORPORAR O AGREGAR EJERCICIOS A LA SESIÓN VIVA */}
             <button
               onClick={() => setIsAddLiveExerciseOpen(true)}
               className="w-full py-3.5 bg-neutral-900 hover:bg-neutral-800 border-2 border-dashed border-lime-400/40 hover:border-lime-400 rounded-2xl flex items-center justify-center gap-2 text-sm font-bold text-lime-400 transition shadow-lg"
@@ -1708,7 +1915,7 @@ export default function ActiveWorkoutPage() {
         </div>
       )}
 
-      {/* ================= 4. PESTAÑA: HISTORIAL (CON DESPLIEGUE INTERACTIVO DE SERIES) ================= */}
+      {/* ================= 4. HISTORIAL ================= */}
       {activeTab === 'history' && (
         <div className="space-y-4">
           <header className="border-b border-neutral-800 pb-4 mb-4">
@@ -1765,7 +1972,6 @@ export default function ActiveWorkoutPage() {
                       </div>
                     </div>
 
-                    {/* VISTA DESPLEGABLE DE SERIES */}
                     {isExpanded && (
                       <div className="mt-3 pt-3 border-t border-neutral-800/80 space-y-2">
                         {isLoadingSets && sets.length === 0 ? (
@@ -1800,7 +2006,7 @@ export default function ActiveWorkoutPage() {
         </div>
       )}
 
-      {/* ================= 5. PESTAÑA: BIBLIOTECA (CON BOTÓN DE CREAR EJERCICIO) ================= */}
+      {/* ================= 5. BIBLIOTECA ================= */}
       {activeTab === 'library' && (
         <div className="space-y-4">
           <header className="flex items-center justify-between border-b border-neutral-800 pb-3 mb-2">
@@ -1809,7 +2015,6 @@ export default function ActiveWorkoutPage() {
               <h1 className="text-xl font-extrabold text-neutral-100">Biblioteca ({catalog.length})</h1>
             </div>
 
-            {/* BOTÓN PARA AGREGAR NUEVOS EJERCICIOS A LA BIBLIOTECA */}
             <button
               onClick={() => setIsNewExerciseModalOpen(true)}
               className="px-3 py-1.5 bg-lime-400 hover:bg-lime-300 text-neutral-950 font-extrabold text-xs rounded-xl flex items-center gap-1 shadow-md transition"
@@ -1861,6 +2066,128 @@ export default function ActiveWorkoutPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: SUSTITUCIÓN DIRECTA DE EJERCICIO EN VIVO ================= */}
+      {substitutingExerciseId && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-3xl p-5 shadow-2xl max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
+              <h3 className="text-sm font-extrabold text-white flex items-center gap-1.5">
+                <RefreshCw className="w-4 h-4 text-lime-400" /> Sustituir por:
+              </h3>
+              <button onClick={() => setSubstitutingExerciseId(null)} className="p-1 text-neutral-400">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="py-2 space-y-2">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  value={liveSearchQuery}
+                  onChange={(e) => setLiveSearchQuery(e.target.value)}
+                  placeholder="Buscar ejercicio de reemplazo..."
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl pl-8 pr-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-lime-400"
+                />
+              </div>
+
+              <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-thin">
+                {MUSCLE_FILTER_OPTIONS.map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => setLiveMuscleFilter(m)}
+                    className={`px-2 py-0.5 rounded-lg text-[10px] font-bold whitespace-nowrap transition border ${
+                      liveMuscleFilter === m
+                        ? 'bg-lime-400 text-neutral-950 border-lime-400'
+                        : 'bg-neutral-950 border-neutral-800 text-neutral-400'
+                    }`}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
+              {filteredLiveExercises.map((catEx) => (
+                <div
+                  key={catEx.id}
+                  onClick={() => handleSubstituteExercise(catEx)}
+                  className="p-2 rounded-xl border border-neutral-800 bg-neutral-950 hover:border-lime-400/60 flex items-center justify-between cursor-pointer transition text-xs"
+                >
+                  <div className="truncate pr-2">
+                    <span className="font-bold text-white block truncate">{catEx.name}</span>
+                    <span className="text-[10px] text-lime-400">{catEx.target_muscle} • {catEx.equipment}</span>
+                  </div>
+                  <Check className="w-4 h-4 text-lime-400 shrink-0" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: AÑADIR EJERCICIO AL ENTRENAMIENTO EN VIVO ================= */}
+      {isAddLiveExerciseOpen && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-3xl p-5 shadow-2xl max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
+              <h3 className="text-sm font-extrabold text-white flex items-center gap-1.5">
+                <Dumbbell className="w-4 h-4 text-lime-400" /> Añadir Ejercicio a Sesión Activa
+              </h3>
+              <button onClick={() => setIsAddLiveExerciseOpen(false)} className="p-1 text-neutral-400">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="py-2 space-y-2">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  value={liveSearchQuery}
+                  onChange={(e) => setLiveSearchQuery(e.target.value)}
+                  placeholder="Buscar ejercicio..."
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl pl-8 pr-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-lime-400"
+                />
+              </div>
+
+              <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-thin">
+                {MUSCLE_FILTER_OPTIONS.map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => setLiveMuscleFilter(m)}
+                    className={`px-2 py-0.5 rounded-lg text-[10px] font-bold whitespace-nowrap transition border ${
+                      liveMuscleFilter === m
+                        ? 'bg-lime-400 text-neutral-950 border-lime-400'
+                        : 'bg-neutral-950 border-neutral-800 text-neutral-400'
+                    }`}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
+              {filteredLiveExercises.map((catEx) => (
+                <div
+                  key={catEx.id}
+                  onClick={() => handleAddExerciseToLiveWorkout(catEx)}
+                  className="p-2 rounded-xl border border-neutral-800 bg-neutral-950 hover:border-lime-400/60 flex items-center justify-between cursor-pointer transition text-xs"
+                >
+                  <div className="truncate pr-2">
+                    <span className="font-bold text-white block truncate">{catEx.name}</span>
+                    <span className="text-[10px] text-lime-400">{catEx.target_muscle}</span>
+                  </div>
+                  <Plus className="w-4 h-4 text-lime-400 shrink-0" />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -1959,68 +2286,7 @@ export default function ActiveWorkoutPage() {
         </div>
       )}
 
-      {/* ================= MODAL: AÑADIR EJERCICIO AL ENTRENAMIENTO EN VIVO ================= */}
-      {isAddLiveExerciseOpen && (
-        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-3xl p-5 shadow-2xl max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
-              <h3 className="text-sm font-extrabold text-white flex items-center gap-1.5">
-                <Dumbbell className="w-4 h-4 text-lime-400" /> Añadir a Sesión Activa
-              </h3>
-              <button onClick={() => setIsAddLiveExerciseOpen(false)} className="p-1 text-neutral-400">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="py-2 space-y-2">
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-2.5" />
-                <input
-                  type="text"
-                  value={liveSearchQuery}
-                  onChange={(e) => setLiveSearchQuery(e.target.value)}
-                  placeholder="Buscar ejercicio..."
-                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl pl-8 pr-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-lime-400"
-                />
-              </div>
-
-              <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-thin">
-                {MUSCLE_FILTER_OPTIONS.map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => setLiveMuscleFilter(m)}
-                    className={`px-2 py-0.5 rounded-lg text-[10px] font-bold whitespace-nowrap transition border ${
-                      liveMuscleFilter === m
-                        ? 'bg-lime-400 text-neutral-950 border-lime-400'
-                        : 'bg-neutral-950 border-neutral-800 text-neutral-400'
-                    }`}
-                  >
-                    {m}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
-              {filteredLiveExercises.map((catEx) => (
-                <div
-                  key={catEx.id}
-                  onClick={() => handleAddExerciseToLiveWorkout(catEx)}
-                  className="p-2 rounded-xl border border-neutral-800 bg-neutral-950 hover:border-lime-400/60 flex items-center justify-between cursor-pointer transition text-xs"
-                >
-                  <div className="truncate pr-2">
-                    <span className="font-bold text-white block truncate">{catEx.name}</span>
-                    <span className="text-[10px] text-lime-400">{catEx.target_muscle}</span>
-                  </div>
-                  <Plus className="w-4 h-4 text-lime-400 shrink-0" />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ================= MODAL: CREAR / EDITAR DÍA (CON REORDENAR FLECHAS) ================= */}
+      {/* ================= MODAL: EDITAR / ORDENAR DÍA ================= */}
       {isDayModalOpen && (
         <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-3xl p-5 shadow-2xl max-h-[92vh] flex flex-col">
@@ -2084,12 +2350,23 @@ export default function ActiveWorkoutPage() {
                       return (
                         <div key={item.exerciseId} className="bg-neutral-900 p-2.5 rounded-xl border border-neutral-800/80 space-y-1.5">
                           <div className="flex justify-between items-center">
-                            <span className="text-xs font-bold text-white truncate max-w-[160px]">
+                            <span className="text-xs font-bold text-white truncate max-w-[140px]">
                               {mIdx + 1}. {ex?.name || item.exerciseId}
                             </span>
 
                             <div className="flex items-center gap-1">
-                              {/* FLECHAS PARA REORDENAR */}
+                              <button
+                                type="button"
+                                onClick={() => toggleModalItemSuperset(item.exerciseId)}
+                                className={`text-[9px] px-1.5 py-0.5 rounded font-mono ${
+                                  item.supersetGroup
+                                    ? 'bg-lime-400 text-neutral-950 font-bold'
+                                    : 'bg-neutral-950 text-neutral-500'
+                                }`}
+                                title="Vincular superserie"
+                              >
+                                {item.supersetGroup ? `Biserie ${item.supersetGroup}` : '+ Biserie'}
+                              </button>
                               <button
                                 type="button"
                                 onClick={() => moveModalItem(mIdx, 'up')}
@@ -2298,16 +2575,35 @@ export default function ActiveWorkoutPage() {
         </div>
       )}
 
-      {/* ================= DESCANSO FLOTANTE ================= */}
+      {/* ================= DESCANSO FLOTANTE CON AVISO SONORO ================= */}
       {isRestActive && restSeconds !== null && (
         <aside className="fixed bottom-20 left-4 right-4 max-w-md mx-auto bg-neutral-900/95 border border-neutral-800 p-3.5 rounded-2xl flex items-center justify-between shadow-2xl z-40">
-          <div>
-            <span className="text-[11px] uppercase tracking-wider text-neutral-400 font-semibold block">Descanso</span>
-            <span className="text-2xl font-mono font-bold text-lime-400">{formatTime(restSeconds)}</span>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-lime-400/10 text-lime-400 flex items-center justify-center">
+              <Volume2 className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="text-[10px] uppercase tracking-wider text-neutral-400 font-semibold block">
+                Descanso
+              </span>
+              <span className="text-2xl font-mono font-bold text-lime-400">
+                {formatTime(restSeconds)}
+              </span>
+            </div>
           </div>
           <div className="flex gap-2">
-            <button onClick={() => setRestSeconds((prev) => (prev ? prev + 30 : 30))} className="px-3 py-1.5 bg-neutral-800 text-xs font-semibold rounded-lg text-neutral-200">+30s</button>
-            <button onClick={() => setIsRestActive(false)} className="px-3 py-1.5 bg-red-500/20 text-red-400 text-xs font-semibold rounded-lg">Saltar</button>
+            <button
+              onClick={() => setRestSeconds((prev) => (prev ? prev + 30 : 30))}
+              className="px-3 py-1.5 bg-neutral-800 text-xs font-semibold rounded-lg text-neutral-200"
+            >
+              +30s
+            </button>
+            <button
+              onClick={() => setIsRestActive(false)}
+              className="px-3 py-1.5 bg-red-500/20 text-red-400 text-xs font-semibold rounded-lg"
+            >
+              Saltar
+            </button>
           </div>
         </aside>
       )}
