@@ -101,6 +101,7 @@ interface WorkoutProgram {
   days: ProgramDay[]
 }
 
+// Reproductor de sonido nativo
 function playBeepSound() {
   try {
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
@@ -289,14 +290,17 @@ export default function ActiveWorkoutPage() {
   const [authError, setAuthError] = useState('')
   const [authSubmitting, setAuthSubmitting] = useState(false)
 
+  // 5 Pestañas
   const [activeTab, setActiveTab] = useState<'home' | 'workout' | 'routines' | 'history' | 'library'>('home')
   const [bodyWeightKg, setBodyWeightKg] = useState<number>(80)
 
+  // Catálogo extendible
   const [catalog, setCatalog] = useState<CatalogExercise[]>(ANATOMICAL_EXERCISES)
   const [libraryMuscleFilter, setLibraryMuscleFilter] = useState('Todos')
   const [librarySearchQuery, setLibrarySearchQuery] = useState('')
   const [selectedPreview, setSelectedPreview] = useState<CatalogExercise | null>(null)
 
+  // Modal para agregar nuevo ejercicio a la biblioteca
   const [isNewExerciseModalOpen, setIsNewExerciseModalOpen] = useState(false)
   const [newExName, setNewExName] = useState('')
   const [newExMuscle, setNewExMuscle] = useState('Pecho')
@@ -304,10 +308,12 @@ export default function ActiveWorkoutPage() {
   const [newExEquipment, setNewExEquipment] = useState('Barra')
   const [newExUrl, setNewExUrl] = useState('')
 
+  // Programas y Días
   const [programsList, setProgramsList] = useState<WorkoutProgram[]>([DEFAULT_5_DAY_PROGRAM])
   const [selectedProgramId, setSelectedProgramId] = useState<string>(DEFAULT_5_DAY_PROGRAM.id)
   const [activeDayIndex, setActiveDayIndex] = useState<number>(0)
 
+  // Modales Programas y Días
   const [isCreatingProgram, setIsCreatingProgram] = useState(false)
   const [newProgramName, setNewProgramName] = useState('')
   const [newProgramDesc, setNewProgramDesc] = useState('')
@@ -321,23 +327,31 @@ export default function ActiveWorkoutPage() {
   const [modalMuscleFilter, setModalMuscleFilter] = useState('Todos')
   const [modalSearchQuery, setModalSearchQuery] = useState('')
 
+  // Modal Agregar ejercicio al entrenamiento en vivo
   const [isAddLiveExerciseOpen, setIsAddLiveExerciseOpen] = useState(false)
   const [liveSearchQuery, setLiveSearchQuery] = useState('')
   const [liveMuscleFilter, setLiveMuscleFilter] = useState('Todos')
 
+  // Modal Sustitución directa de ejercicio en vivo
   const [substitutingExerciseId, setSubstitutingExerciseId] = useState<string | null>(null)
 
+  // Modal Editar Sesión Pasada del Historial (con selector para agregar ejercicios)
   const [editingWorkout, setEditingWorkout] = useState<PastWorkout | null>(null)
   const [editingWorkoutSets, setEditingWorkoutSets] = useState<any[]>([])
   const [isSavingHistoryEdit, setIsSavingHistoryEdit] = useState(false)
+  const [isAddingExerciseToHistory, setIsAddingExerciseToHistory] = useState(false)
+  const [historySearchQuery, setHistorySearchQuery] = useState('')
 
+  // Sesión y Cronómetro
   const [workoutName, setWorkoutName] = useState('Torso A (Fuerza e Hipertrofia)')
   const [sessionSeconds, setSessionSeconds] = useState(0)
   const [isSessionRunning, setIsSessionRunning] = useState(false)
 
+  // Descanso
   const [restSeconds, setRestSeconds] = useState<number | null>(null)
   const [isRestActive, setIsRestActive] = useState(false)
 
+  // Supabase persistencia e Historial
   const [isSaving, setIsSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [historyList, setHistoryList] = useState<PastWorkout[]>([])
@@ -348,11 +362,14 @@ export default function ActiveWorkoutPage() {
   const [isSummaryOpen, setIsSummaryOpen] = useState(false)
   const historyLoadedRef = useRef(false)
 
+  // Calculadora 1RM interactiva
   const [calcWeight, setCalcWeight] = useState<number>(80)
   const [calcReps, setCalcReps] = useState<number>(8)
 
+  // Ejercicios activos
   const [exercises, setExercises] = useState<WorkoutExercise[]>([])
 
+  // Cargar ejercicios de localStorage
   useEffect(() => {
     try {
       const customSaved = localStorage.getItem('user_custom_library_exercises')
@@ -369,6 +386,7 @@ export default function ActiveWorkoutPage() {
     }
   }, [])
 
+  // Inicializar ejercicios de Día 1
   useEffect(() => {
     if (exercises.length === 0 && DEFAULT_5_DAY_PROGRAM.days[0]) {
       const d1 = DEFAULT_5_DAY_PROGRAM.days[0]
@@ -403,6 +421,7 @@ export default function ActiveWorkoutPage() {
     }
   }, [catalog, exercises.length])
 
+  // Carga de rutinas de localStorage
   useEffect(() => {
     try {
       const saved =
@@ -452,6 +471,7 @@ export default function ActiveWorkoutPage() {
     }
   }
 
+  // Auth Supabase
   useEffect(() => {
     const supabase = createClient()
     if (!supabase) {
@@ -546,7 +566,7 @@ export default function ActiveWorkoutPage() {
     }
   }, [activeTab, user])
 
-  // CORREGIDO: Consulta por set_number (no created_at) y respaldo seguro
+  // Desplegar detalles de series (ordenando por set_number)
   const toggleWorkoutDetails = async (workoutId: string) => {
     if (expandedWorkoutId === workoutId) {
       setExpandedWorkoutId(null)
@@ -569,7 +589,6 @@ export default function ActiveWorkoutPage() {
       if (data && !error && data.length > 0) {
         setWorkoutSetsDetails((prev) => ({ ...prev, [workoutId]: data }))
       } else {
-        // Respaldo de localStorage si Supabase no tiene el set
         const localBackup = localStorage.getItem(`workout_sets_${workoutId}`)
         if (localBackup) {
           setWorkoutSetsDetails((prev) => ({ ...prev, [workoutId]: JSON.parse(localBackup) }))
@@ -586,6 +605,7 @@ export default function ActiveWorkoutPage() {
     }
   }
 
+  // Eliminar sesión del historial
   const deleteWorkout = async (workoutId: string, e: React.MouseEvent) => {
     e.stopPropagation()
     if (!confirm('¿Estás seguro de que deseas eliminar esta sesión del historial?')) return
@@ -604,9 +624,12 @@ export default function ActiveWorkoutPage() {
     }
   }
 
+  // Abrir editor de sesión pasada
   const openEditWorkoutModal = async (workout: PastWorkout, e: React.MouseEvent) => {
     e.stopPropagation()
     setEditingWorkout(workout)
+    setIsAddingExerciseToHistory(false)
+    setHistorySearchQuery('')
 
     let sets = workoutSetsDetails[workout.id]
     if (!sets || sets.length === 0) {
@@ -627,6 +650,29 @@ export default function ActiveWorkoutPage() {
     setEditingWorkoutSets(JSON.parse(JSON.stringify(sets || [])))
   }
 
+  // Agregar ejercicio nuevo a la sesión que se está editando
+  const handleAddExerciseToHistorySession = (catEx: CatalogExercise) => {
+    if (!editingWorkout) return
+    const newSetsForEx = [1, 2, 3].map((num) => ({
+      id: `new-${Date.now()}-${num}`,
+      workout_id: editingWorkout.id,
+      exercise_id: catEx.id,
+      set_number: num,
+      weight_kg: 30,
+      reps: 10,
+      rir: 1,
+      is_pr: false,
+    }))
+    setEditingWorkoutSets((prev) => [...prev, ...newSetsForEx])
+    setIsAddingExerciseToHistory(false)
+  }
+
+  // Eliminar una serie específica dentro del editor de sesión
+  const handleRemoveSetFromHistory = (index: number) => {
+    setEditingWorkoutSets((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  // Guardar edición de sesión pasada
   const handleSaveWorkoutEdit = async () => {
     if (!editingWorkout) return
     setIsSavingHistoryEdit(true)
@@ -647,17 +693,21 @@ export default function ActiveWorkoutPage() {
           })
           .eq('id', editingWorkout.id)
 
-        for (const s of editingWorkoutSets) {
-          if (s.id) {
-            await supabase
-              .from('workout_sets')
-              .update({
-                weight_kg: Number(s.weight_kg) || 0,
-                reps: Number(s.reps) || 0,
-                rir: Number(s.rir) || 0,
-              })
-              .eq('id', s.id)
-          }
+        // Limpiar series anteriores y reinsertar conjunto actualizado
+        await supabase.from('workout_sets').delete().eq('workout_id', editingWorkout.id)
+
+        const setsToInsert = editingWorkoutSets.map((s, idx) => ({
+          workout_id: editingWorkout.id,
+          exercise_id: s.exercise_id,
+          set_number: s.set_number || idx + 1,
+          weight_kg: Number(s.weight_kg) || 0,
+          reps: Number(s.reps) || 0,
+          rir: Number(s.rir) || 0,
+          is_pr: Boolean(s.is_pr),
+        }))
+
+        if (setsToInsert.length > 0) {
+          await supabase.from('workout_sets').insert(setsToInsert)
         }
       }
 
@@ -683,6 +733,7 @@ export default function ActiveWorkoutPage() {
     }
   }
 
+  // Cronómetro de sesión
   useEffect(() => {
     let interval: NodeJS.Timeout
     if (isSessionRunning) {
@@ -691,6 +742,7 @@ export default function ActiveWorkoutPage() {
     return () => clearInterval(interval)
   }, [isSessionRunning])
 
+  // Temporizador de descanso con pitido final
   useEffect(() => {
     let interval: NodeJS.Timeout
     if (isRestActive && restSeconds !== null && restSeconds > 0) {
@@ -724,37 +776,37 @@ export default function ActiveWorkoutPage() {
     return calculate1RM(calcWeight, calcReps)
   }, [calcWeight, calcReps])
 
-  // CORREGIDO: Lógica precisa de biseries y descansos
+  // LÓGICA DE BISERIE: El descanso SOLO salta cuando se completan TODAS las series del grupo (las 6 de 6)
   const toggleSetComplete = (exerciseId: string, setId: string) => {
     if (!isSessionRunning) setIsSessionRunning(true)
 
     setExercises((prev) => {
       const currentEx = prev.find((e) => e.id === exerciseId)
       const currentSuperset = currentEx?.supersetGroup
+      const targetSet = currentEx?.sets.find((s) => s.id === setId)
+      const willBeCompleted = targetSet ? !targetSet.isCompleted : false
 
       let shouldTriggerRest = false
 
       if (!currentSuperset) {
-        // Ejercicio normal: salta descanso en cada serie completada
-        const targetSet = currentEx?.sets.find((s) => s.id === setId)
-        shouldTriggerRest = targetSet ? !targetSet.isCompleted : false
+        // En ejercicio normal: cada serie completada activa descanso
+        shouldTriggerRest = willBeCompleted
       } else {
-        // En Biserie: buscar los ejercicios que comparten la misma letra (ej: 'A')
+        // En Biserie: obtener todos los ejercicios con esa misma letra (ej: 'A')
         const groupExercises = prev.filter((e) => e.supersetGroup === currentSuperset)
-        const isLastExerciseInGroup = groupExercises[groupExercises.length - 1]?.id === exerciseId
-        const currentSet = currentEx?.sets.find((s) => s.id === setId)
-        const targetSetNumber = currentSet?.setNumber || 1
-        const willBeCompleted = currentSet ? !currentSet.isCompleted : false
+        const totalSetsInGroup = groupExercises.reduce((acc, e) => acc + e.sets.length, 0)
 
-        if (willBeCompleted && isLastExerciseInGroup) {
-          // Verificar si el primer ejercicio ya tiene esta misma serie completada (Ronda terminada)
-          const firstEx = groupExercises[0]
-          const firstExMatchingSet = firstEx?.sets.find((s) => s.setNumber === targetSetNumber)
+        // Calcular cuántas series quedarán completadas tras este check
+        const completedSetsCount = groupExercises.reduce((acc, e) => {
+          return (
+            acc +
+            e.sets.filter((s) => (s.id === setId ? willBeCompleted : s.isCompleted)).length
+          )
+        }, 0)
 
-          // Si el primer ejercicio ya hizo esta serie O si completó todas sus series previas
-          if (firstExMatchingSet?.isCompleted || firstEx?.sets.every((s) => s.isCompleted)) {
-            shouldTriggerRest = true
-          }
+        // SOLO dispara el cronómetro al completar las 6 series del bloque completo
+        if (willBeCompleted && completedSetsCount === totalSetsInGroup) {
+          shouldTriggerRest = true
         }
       }
 
@@ -1250,7 +1302,15 @@ export default function ActiveWorkoutPage() {
     })
   }, [catalog, liveSearchQuery, liveMuscleFilter])
 
-  // CORREGIDO: Emparejamiento por ID o por Nombre para que NUNCA quede vacío
+  const filteredHistoryExercises = useMemo(() => {
+    return catalog.filter(
+      (ex) =>
+        ex.name.toLowerCase().includes(historySearchQuery.toLowerCase()) ||
+        ex.target_muscle.toLowerCase().includes(historySearchQuery.toLowerCase())
+    )
+  }, [catalog, historySearchQuery])
+
+  // Desglose profesional agrupado por ejercicio en el historial
   const groupedWorkoutSets = useMemo(() => {
     if (!expandedWorkoutId || !workoutSetsDetails[expandedWorkoutId]) return []
     const rawSets = workoutSetsDetails[expandedWorkoutId]
@@ -1328,7 +1388,6 @@ export default function ActiveWorkoutPage() {
 
         if (setsToInsert.length > 0) {
           await supabase.from('workout_sets').insert(setsToInsert)
-          // Guardar copia local de seguridad inmediata
           localStorage.setItem(`workout_sets_${workout.id}`, JSON.stringify(setsToInsert))
           setWorkoutSetsDetails((prev) => ({ ...prev, [workout.id]: setsToInsert }))
         }
@@ -2259,10 +2318,10 @@ export default function ActiveWorkoutPage() {
         </div>
       )}
 
-      {/* ================= MODAL: EDITAR SESIÓN PASADA ================= */}
+      {/* ================= MODAL: EDITAR SESIÓN PASADA (CON AGREGAR EJERCICIO EXTRA) ================= */}
       {editingWorkout && (
         <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-3xl p-5 shadow-2xl max-h-[90vh] flex flex-col">
+          <div className="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-3xl p-5 shadow-2xl max-h-[92vh] flex flex-col">
             <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
               <h3 className="text-sm font-extrabold text-white flex items-center gap-1.5">
                 <Pencil className="w-4 h-4 text-lime-400" /> Editar Sesión Pasada
@@ -2283,15 +2342,67 @@ export default function ActiveWorkoutPage() {
                 />
               </div>
 
+              {/* BOTÓN PARA AÑADIR EJERCICIO EXTRA A ESTA SESIÓN PASADA */}
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsAddingExerciseToHistory(!isAddingExerciseToHistory)}
+                  className="w-full py-2 bg-neutral-950 border border-dashed border-lime-400/50 hover:border-lime-400 text-lime-400 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition"
+                >
+                  <Plus className="w-3.5 h-3.5" /> + Añadir Ejercicio a esta sesión
+                </button>
+              </div>
+
+              {/* SELECTOR DESPLEGABLE DE EJERCICIOS PARA EL HISTORIAL */}
+              {isAddingExerciseToHistory && (
+                <div className="bg-neutral-950 p-3 rounded-2xl border border-neutral-800 space-y-2">
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-2.5 top-2.5" />
+                    <input
+                      type="text"
+                      placeholder="Buscar ejercicio..."
+                      value={historySearchQuery}
+                      onChange={(e) => setHistorySearchQuery(e.target.value)}
+                      className="w-full bg-neutral-900 border border-neutral-700 rounded-xl pl-8 pr-2 py-1.5 text-xs text-white focus:outline-none focus:border-lime-400"
+                    />
+                  </div>
+
+                  <div className="max-h-36 overflow-y-auto space-y-1 pr-1">
+                    {filteredHistoryExercises.slice(0, 15).map((catEx) => (
+                      <div
+                        key={catEx.id}
+                        onClick={() => handleAddExerciseToHistorySession(catEx)}
+                        className="p-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 flex justify-between items-center cursor-pointer text-xs"
+                      >
+                        <span className="font-bold text-white truncate max-w-[190px]">{catEx.name}</span>
+                        <Plus className="w-3.5 h-3.5 text-lime-400 shrink-0" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div>
-                <label className="text-[10px] font-bold text-neutral-400 block mb-1.5">Modificar Cargas y Reps</label>
+                <label className="text-[10px] font-bold text-neutral-400 block mb-1.5">Series Registradas ({editingWorkoutSets.length})</label>
                 <div className="space-y-2">
                   {editingWorkoutSets.map((s, idx) => {
-                    const exInfo = catalog.find((c) => c.id === s.exercise_id)
+                    const exInfo =
+                      catalog.find((c) => c.id === s.exercise_id || c.name === s.exercise_id) ||
+                      ANATOMICAL_EXERCISES.find((c) => c.id === s.exercise_id)
                     return (
                       <div key={s.id || idx} className="bg-neutral-950 p-2.5 rounded-xl border border-neutral-800/80 space-y-1">
-                        <div className="text-[11px] font-bold text-white truncate">
-                          #{s.set_number || idx + 1} • {exInfo?.name || s.exercise_id}
+                        <div className="flex justify-between items-center text-[11px] font-bold text-white">
+                          <span className="truncate max-w-[180px]">
+                            #{s.set_number || idx + 1} • {exInfo?.name || s.exercise_id}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSetFromHistory(idx)}
+                            className="text-neutral-500 hover:text-red-400 p-0.5"
+                            title="Quitar serie"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                         <div className="grid grid-cols-3 gap-2">
                           <div>
