@@ -16,7 +16,8 @@ import {
   Loader2,
   Sparkles,
   ArrowLeft,
-  Maximize2,
+  ArrowUp,
+  ArrowDown,
   History,
   Calendar,
   ChevronRight,
@@ -31,6 +32,8 @@ import {
   LogOut,
   Pencil,
   ClipboardList,
+  Calculator,
+  Download,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { ANATOMICAL_EXERCISES, CatalogExercise } from '@/data/exercises'
@@ -246,21 +249,35 @@ export default function ActiveWorkoutPage() {
   const [authError, setAuthError] = useState('')
   const [authSubmitting, setAuthSubmitting] = useState(false)
 
-  // 5 Pestañas de navegación
+  // 5 Pestañas
   const [activeTab, setActiveTab] = useState<'home' | 'workout' | 'routines' | 'history' | 'library'>('home')
   const [bodyWeightKg, setBodyWeightKg] = useState<number>(80)
+
+  // Catálogo extendible con ejercicios personalizados
+  const [catalog, setCatalog] = useState<CatalogExercise[]>(ANATOMICAL_EXERCISES)
+  const [libraryMuscleFilter, setLibraryMuscleFilter] = useState('Todos')
+  const [librarySearchQuery, setLibrarySearchQuery] = useState('')
+  const [selectedPreview, setSelectedPreview] = useState<CatalogExercise | null>(null)
+
+  // Modal para agregar nuevo ejercicio a la biblioteca
+  const [isNewExerciseModalOpen, setIsNewExerciseModalOpen] = useState(false)
+  const [newExName, setNewExName] = useState('')
+  const [newExMuscle, setNewExMuscle] = useState('Pecho')
+  const [newExSecondary, setNewExSecondary] = useState('')
+  const [newExEquipment, setNewExEquipment] = useState('Barra')
+  const [newExUrl, setNewExUrl] = useState('')
 
   // Programas y Días
   const [programsList, setProgramsList] = useState<WorkoutProgram[]>([DEFAULT_5_DAY_PROGRAM])
   const [selectedProgramId, setSelectedProgramId] = useState<string>(DEFAULT_5_DAY_PROGRAM.id)
   const [activeDayIndex, setActiveDayIndex] = useState<number>(0)
 
-  // Modales
+  // Modal Crear Programa
   const [isCreatingProgram, setIsCreatingProgram] = useState(false)
   const [newProgramName, setNewProgramName] = useState('')
   const [newProgramDesc, setNewProgramDesc] = useState('')
 
-  // Modal agregar/editar día
+  // Modal Agregar/Editar Día
   const [isDayModalOpen, setIsDayModalOpen] = useState(false)
   const [editingDayId, setEditingDayId] = useState<string | null>(null)
   const [modalDayBadge, setModalDayBadge] = useState('Día 1')
@@ -269,6 +286,11 @@ export default function ActiveWorkoutPage() {
   const [modalItems, setModalItems] = useState<RoutineTemplateItem[]>([])
   const [modalMuscleFilter, setModalMuscleFilter] = useState('Todos')
   const [modalSearchQuery, setModalSearchQuery] = useState('')
+
+  // Modal para incorporar ejercicio a la sesión activa en vivo
+  const [isAddLiveExerciseOpen, setIsAddLiveExerciseOpen] = useState(false)
+  const [liveSearchQuery, setLiveSearchQuery] = useState('')
+  const [liveMuscleFilter, setLiveMuscleFilter] = useState('Todos')
 
   // Sesión y Cronómetro
   const [workoutName, setWorkoutName] = useState('Torso A (Fuerza e Hipertrofia)')
@@ -279,22 +301,40 @@ export default function ActiveWorkoutPage() {
   const [restSeconds, setRestSeconds] = useState<number | null>(null)
   const [isRestActive, setIsRestActive] = useState(false)
 
-  // Catálogo completo
-  const catalog = ANATOMICAL_EXERCISES
-  const [libraryMuscleFilter, setLibraryMuscleFilter] = useState('Todos')
-  const [librarySearchQuery, setLibrarySearchQuery] = useState('')
-  const [isSummaryOpen, setIsSummaryOpen] = useState(false)
-  const [selectedPreview, setSelectedPreview] = useState<CatalogExercise | null>(null)
-
-  // Supabase
+  // Supabase persistencia e Historial
   const [isSaving, setIsSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [historyList, setHistoryList] = useState<PastWorkout[]>([])
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+  const [expandedWorkoutId, setExpandedWorkoutId] = useState<string | null>(null)
+  const [workoutSetsDetails, setWorkoutSetsDetails] = useState<Record<string, any[]>>({})
+  const [isLoadingSets, setIsLoadingSets] = useState(false)
+  const [isSummaryOpen, setIsSummaryOpen] = useState(false)
   const historyLoadedRef = useRef(false)
+
+  // Calculadora 1RM interactiva en panel de Inicio
+  const [calcWeight, setCalcWeight] = useState<number>(80)
+  const [calcReps, setCalcReps] = useState<number>(8)
 
   // Ejercicios activos
   const [exercises, setExercises] = useState<WorkoutExercise[]>([])
+
+  // Cargar ejercicios personalizados adicionales de localStorage
+  useEffect(() => {
+    try {
+      const customSaved = localStorage.getItem('user_custom_library_exercises')
+      if (customSaved) {
+        const parsed: CatalogExercise[] = JSON.parse(customSaved)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const ids = new Set(ANATOMICAL_EXERCISES.map((e) => e.id))
+          const filtered = parsed.filter((e) => !ids.has(e.id))
+          setCatalog([...filtered, ...ANATOMICAL_EXERCISES])
+        }
+      }
+    } catch (e) {
+      console.warn('Error leyendo ejercicios propios:', e)
+    }
+  }, [])
 
   // Inicializar ejercicios por defecto desde el Día 1
   useEffect(() => {
@@ -327,7 +367,7 @@ export default function ActiveWorkoutPage() {
     }
   }, [catalog, exercises.length])
 
-  // Carga y recuperación de rutinas de localStorage
+  // Carga y recuperación de programas de localStorage
   useEffect(() => {
     try {
       const saved =
@@ -335,8 +375,7 @@ export default function ActiveWorkoutPage() {
         localStorage.getItem('user_workout_programs_v5') ||
         localStorage.getItem('user_workout_programs_v4') ||
         localStorage.getItem('user_workout_programs_v3') ||
-        localStorage.getItem('user_workout_programs_v2') ||
-        localStorage.getItem('custom_user_routines')
+        localStorage.getItem('user_workout_programs_v2')
 
       if (saved) {
         const parsed = JSON.parse(saved)
@@ -474,6 +513,36 @@ export default function ActiveWorkoutPage() {
     }
   }, [activeTab, user])
 
+  // Desplegar detalles de series en historial
+  const toggleWorkoutDetails = async (workoutId: string) => {
+    if (expandedWorkoutId === workoutId) {
+      setExpandedWorkoutId(null)
+      return
+    }
+    setExpandedWorkoutId(workoutId)
+
+    if (workoutSetsDetails[workoutId]) return
+
+    setIsLoadingSets(true)
+    try {
+      const supabase = createClient()
+      if (!supabase) return
+      const { data, error } = await supabase
+        .from('workout_sets')
+        .select('*')
+        .eq('workout_id', workoutId)
+        .order('set_number', { ascending: true })
+
+      if (data && !error) {
+        setWorkoutSetsDetails((prev) => ({ ...prev, [workoutId]: data }))
+      }
+    } catch (err) {
+      console.warn('Error cargando series:', err)
+    } finally {
+      setIsLoadingSets(false)
+    }
+  }
+
   // Cronómetro
   useEffect(() => {
     let interval: NodeJS.Timeout
@@ -505,6 +574,10 @@ export default function ActiveWorkoutPage() {
     if (reps === 1) return weight
     return Math.round(weight * (1 + reps / 30))
   }
+
+  const estimated1RMCalc = useMemo(() => {
+    return calculate1RM(calcWeight, calcReps)
+  }, [calcWeight, calcReps])
 
   const toggleSetComplete = (exerciseId: string, setId: string) => {
     if (!isSessionRunning) setIsSessionRunning(true)
@@ -575,10 +648,95 @@ export default function ActiveWorkoutPage() {
     )
   }
 
-  const removeExercise = (exerciseId: string) => {
-    setExercises((prev) => prev.filter((ex) => ex.id !== exerciseId))
+  // Confirmación al borrar ejercicio en sesión en vivo
+  const removeExerciseWithConfirm = (exerciseId: string, exerciseName: string) => {
+    if (confirm(`¿Estás seguro de quitar "${exerciseName}" de esta sesión?`)) {
+      setExercises((prev) => prev.filter((ex) => ex.id !== exerciseId))
+    }
   }
 
+  // Reordenar ejercicios en sesión en vivo
+  const moveLiveExercise = (index: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1
+    if (targetIndex < 0 || targetIndex >= exercises.length) return
+    const reordered = [...exercises]
+    const temp = reordered[index]
+    reordered[index] = reordered[targetIndex]
+    reordered[targetIndex] = temp
+    setExercises(reordered)
+  }
+
+  // Reordenar ejercicios en el modal de edición de día
+  const moveModalItem = (index: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1
+    if (targetIndex < 0 || targetIndex >= modalItems.length) return
+    const reordered = [...modalItems]
+    const temp = reordered[index]
+    reordered[index] = reordered[targetIndex]
+    reordered[targetIndex] = temp
+    setModalItems(reordered)
+  }
+
+  // Agregar ejercicio al vuelo en la sesión activa
+  const handleAddExerciseToLiveWorkout = (catEx: CatalogExercise) => {
+    const newEx: WorkoutExercise = {
+      id: `wex-live-${Date.now()}`,
+      exerciseId: catEx.id,
+      name: catEx.name,
+      targetMuscle: catEx.target_muscle,
+      secondaryMuscle: catEx.secondary_muscle,
+      anatomicalImageUrl: catEx.anatomical_image_url,
+      previousBest: 'Registrar peso',
+      note: '',
+      sets: [
+        { id: `s-live-1`, setNumber: 1, weight: 30, reps: 10, rir: 2, isCompleted: false, isPr: false },
+        { id: `s-live-2`, setNumber: 2, weight: 30, reps: 10, rir: 1, isCompleted: false, isPr: false },
+        { id: `s-live-3`, setNumber: 3, weight: 30, reps: 10, rir: 1, isCompleted: false, isPr: false },
+      ],
+    }
+    setExercises((prev) => [...prev, newEx])
+    setIsAddLiveExerciseOpen(false)
+  }
+
+  // Guardar nuevo ejercicio en Biblioteca
+  const handleCreateCustomCatalogExercise = () => {
+    if (!newExName.trim()) {
+      alert('Por favor ingresa el nombre del ejercicio.')
+      return
+    }
+
+    const created: CatalogExercise = {
+      id: `custom-ex-${Date.now()}`,
+      name: newExName.trim(),
+      target_muscle: newExMuscle,
+      secondary_muscle: newExSecondary.trim() || 'Sinergistas',
+      equipment: newExEquipment,
+      anatomical_image_url:
+        newExUrl.trim() ||
+        'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Bench-Press.gif',
+    }
+
+    const updated = [created, ...catalog]
+    setCatalog(updated)
+
+    try {
+      const stored = localStorage.getItem('user_custom_library_exercises')
+      const parsed = stored ? JSON.parse(stored) : []
+      localStorage.setItem(
+        'user_custom_library_exercises',
+        JSON.stringify([created, ...parsed])
+      )
+    } catch (e) {
+      console.warn('Error guardando en almacenamiento local:', e)
+    }
+
+    setIsNewExerciseModalOpen(false)
+    setNewExName('')
+    setNewExSecondary('')
+    setNewExUrl('')
+  }
+
+  // Iniciar día seleccionado
   const handleStartDay = (day: ProgramDay) => {
     const builtExercises: WorkoutExercise[] = day.items.map((item, idx) => {
       const catEx = catalog.find((c) => c.id === item.exerciseId) || catalog[0]
@@ -611,6 +769,38 @@ export default function ActiveWorkoutPage() {
     setSessionSeconds(0)
     setIsSessionRunning(true)
     setActiveTab('workout')
+  }
+
+  // Descargar tablilla de rutina actual en formato texto
+  const downloadRoutinePlan = () => {
+    if (!currentProgram) return
+    let textContent = `=====================================\n`
+    textContent += `PLAN DE ENTRENAMIENTO: ${currentProgram.name.toUpperCase()}\n`
+    textContent += `${currentProgram.description || ''}\n`
+    textContent += `=====================================\n\n`
+
+    currentProgram.days.forEach((day, dIdx) => {
+      textContent += `[${day.dayBadge}] ${day.title} (${day.estimatedDuration})\n`
+      if (day.subtitle) textContent += `Objetivo: ${day.subtitle}\n`
+      textContent += `-------------------------------------\n`
+      day.items.forEach((item, iIdx) => {
+        const ex = catalog.find((c) => c.id === item.exerciseId)
+        textContent += `${iIdx + 1}. ${ex?.name || item.exerciseId}\n`
+        textContent += `   Series: ${item.setsCount} | Reps: ${item.defaultReps} | Peso: ${item.defaultWeight} kg\n`
+        if (item.note) textContent += `   Nota: ${item.note}\n`
+      })
+      textContent += `\n`
+    })
+
+    const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${currentProgram.name.replace(/\s+/g, '_')}_rutina.txt`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
   }
 
   const handleCreateProgram = () => {
@@ -806,6 +996,18 @@ export default function ActiveWorkoutPage() {
     })
   }, [catalog, librarySearchQuery, libraryMuscleFilter])
 
+  const filteredLiveExercises = useMemo(() => {
+    return catalog.filter((ex) => {
+      const matchesSearch =
+        ex.name.toLowerCase().includes(liveSearchQuery.toLowerCase()) ||
+        ex.target_muscle.toLowerCase().includes(liveSearchQuery.toLowerCase())
+      const matchesMuscle =
+        liveMuscleFilter === 'Todos' ||
+        ex.target_muscle.toLowerCase().includes(liveMuscleFilter.toLowerCase())
+      return matchesSearch && matchesMuscle
+    })
+  }, [catalog, liveSearchQuery, liveMuscleFilter])
+
   const handleSaveWorkout = async () => {
     setIsSaving(true)
     setSaveSuccess(false)
@@ -933,7 +1135,7 @@ export default function ActiveWorkoutPage() {
 
   return (
     <main className="min-h-screen bg-neutral-950 text-neutral-100 p-4 max-w-md mx-auto pb-28">
-      {/* ================= 1. INICIO ================= */}
+      {/* ================= 1. INICIO (CON MÁS HERRAMIENTAS Y ESPACIO APROVECHADO) ================= */}
       {activeTab === 'home' && (
         <div className="space-y-4">
           <header className="flex items-center justify-between border-b border-neutral-800 pb-3">
@@ -995,7 +1197,7 @@ export default function ActiveWorkoutPage() {
                 </div>
               </div>
               <button className="px-2.5 py-1 bg-lime-400 text-neutral-950 font-bold text-xs rounded-xl">
-                Ver →
+                Continuar →
               </button>
             </div>
           )}
@@ -1021,18 +1223,28 @@ export default function ActiveWorkoutPage() {
             </div>
           </div>
 
-          {/* Acceso a Rutinas */}
-          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-5 text-center space-y-3">
-            <h2 className="text-base font-extrabold text-white">¿Listo para entrenar hoy?</h2>
-            <p className="text-xs text-neutral-400 max-w-xs mx-auto">
-              Accede a tus programas divididos de 5 días o configura una nueva sesión en la pestaña <strong>Rutinas</strong>.
-            </p>
+          {/* Tarjeta de acciones rápidas */}
+          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-extrabold text-white">¿Qué entrenamos hoy?</h2>
+                <p className="text-[11px] text-neutral-400">Accede a tus rutinas o inicia un entrenamiento</p>
+              </div>
+              <button
+                onClick={downloadRoutinePlan}
+                className="p-2 bg-neutral-950 border border-neutral-800 hover:border-lime-400/50 rounded-xl text-neutral-300 hover:text-lime-400 transition"
+                title="Descargar tablilla de la rutina actual en TXT"
+              >
+                <Download className="w-4 h-4" />
+              </button>
+            </div>
+
             <div className="flex gap-2">
               <button
                 onClick={() => setActiveTab('routines')}
                 className="flex-1 py-3 bg-lime-400 hover:bg-lime-300 text-neutral-950 font-extrabold text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-1.5"
               >
-                <ClipboardList className="w-4 h-4" /> Ir a Mis Rutinas
+                <ClipboardList className="w-4 h-4" /> Ver Mis Rutinas
               </button>
               <button
                 onClick={() => {
@@ -1044,6 +1256,56 @@ export default function ActiveWorkoutPage() {
               >
                 Entreno Libre
               </button>
+            </div>
+          </div>
+
+          {/* CALCULADORA DE 1RM INTERACTIVA */}
+          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-4 space-y-3 shadow-lg">
+            <div className="flex items-center justify-between border-b border-neutral-800 pb-2">
+              <div className="flex items-center gap-1.5">
+                <Calculator className="w-4 h-4 text-lime-400" />
+                <h3 className="text-xs font-extrabold text-white uppercase tracking-wider">
+                  Calculadora de 1RM Estimado
+                </h3>
+              </div>
+              <span className="text-[10px] text-neutral-400 font-mono">Fórmula Epley</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[10px] font-bold text-neutral-400 block mb-1">Peso (kg)</label>
+                <input
+                  type="number"
+                  value={calcWeight}
+                  onChange={(e) => setCalcWeight(Number(e.target.value))}
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-1.5 font-mono text-sm text-white focus:outline-none focus:border-lime-400"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-neutral-400 block mb-1">Repeticiones</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="30"
+                  value={calcReps}
+                  onChange={(e) => setCalcReps(Number(e.target.value))}
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-1.5 font-mono text-sm text-white focus:outline-none focus:border-lime-400"
+                />
+              </div>
+            </div>
+
+            <div className="bg-neutral-950 p-2.5 rounded-2xl border border-neutral-800/80 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-neutral-500 block">Tu 1RM Estimado</span>
+                <span className="text-xl font-extrabold font-mono text-lime-400">{estimated1RMCalc} kg</span>
+              </div>
+
+              <div className="text-right text-[10px] font-mono space-y-0.5">
+                <div className="text-neutral-300">90%: <span className="text-white font-bold">{Math.round(estimated1RMCalc * 0.9)} kg</span></div>
+                <div className="text-neutral-400">80%: <span className="text-white font-bold">{Math.round(estimated1RMCalc * 0.8)} kg</span></div>
+                <div className="text-neutral-500">70%: <span className="text-white font-bold">{Math.round(estimated1RMCalc * 0.7)} kg</span></div>
+              </div>
             </div>
           </div>
         </div>
@@ -1141,7 +1403,7 @@ export default function ActiveWorkoutPage() {
                           <button
                             onClick={() => openEditDayModal(currentDay)}
                             className="p-1.5 bg-neutral-900 hover:bg-neutral-800 text-neutral-400 hover:text-white rounded-lg transition"
-                            title="Editar ejercicios de este día"
+                            title="Editar y ordenar ejercicios"
                           >
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
@@ -1222,7 +1484,7 @@ export default function ActiveWorkoutPage() {
         </div>
       )}
 
-      {/* ================= 3. PESTAÑA: ENTRENAR ================= */}
+      {/* ================= 3. PESTAÑA: ENTRENAR (CON REORDENAR Y REINCORPORAR EJERCICIO) ================= */}
       {activeTab === 'workout' && (
         <div>
           <header className="border-b border-neutral-800 pb-3.5 mb-4">
@@ -1272,7 +1534,7 @@ export default function ActiveWorkoutPage() {
           </header>
 
           <div className="space-y-4">
-            {exercises.map((ex) => {
+            {exercises.map((ex, index) => {
               const best1RM = Math.max(...ex.sets.map((s) => calculate1RM(s.weight, s.reps)), 0)
 
               return (
@@ -1306,9 +1568,33 @@ export default function ActiveWorkoutPage() {
                       </div>
                     </div>
 
-                    <button onClick={() => removeExercise(ex.id)} className="text-neutral-500 hover:text-red-400 transition p-1.5">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      {/* BOTONES PARA REORDENAR EJERCICIOS */}
+                      <button
+                        onClick={() => moveLiveExercise(index, 'up')}
+                        disabled={index === 0}
+                        className="p-1 bg-neutral-950 hover:bg-neutral-800 disabled:opacity-30 text-neutral-400 rounded-lg transition"
+                        title="Subir posición"
+                      >
+                        <ArrowUp className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => moveLiveExercise(index, 'down')}
+                        disabled={index === exercises.length - 1}
+                        className="p-1 bg-neutral-950 hover:bg-neutral-800 disabled:opacity-30 text-neutral-400 rounded-lg transition"
+                        title="Bajar posición"
+                      >
+                        <ArrowDown className="w-3.5 h-3.5" />
+                      </button>
+                      {/* BOTÓN CON CONFIRMACIÓN AL BORRAR */}
+                      <button
+                        onClick={() => removeExerciseWithConfirm(ex.id, ex.name)}
+                        className="p-1 bg-neutral-950 hover:bg-red-950/60 text-neutral-500 hover:text-red-400 rounded-lg transition ml-1"
+                        title="Quitar ejercicio"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-12 text-[11px] text-neutral-400 uppercase font-semibold mb-2 px-1 text-center">
@@ -1411,17 +1697,18 @@ export default function ActiveWorkoutPage() {
               )
             })}
 
+            {/* BOTÓN PARA REINCORPORAR O AGREGAR EJERCICIOS A LA SESIÓN VIVA */}
             <button
-              onClick={() => setActiveTab('library')}
-              className="w-full py-3.5 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-2xl flex items-center justify-center gap-2 text-sm font-bold text-lime-400 transition"
+              onClick={() => setIsAddLiveExerciseOpen(true)}
+              className="w-full py-3.5 bg-neutral-900 hover:bg-neutral-800 border-2 border-dashed border-lime-400/40 hover:border-lime-400 rounded-2xl flex items-center justify-center gap-2 text-sm font-bold text-lime-400 transition shadow-lg"
             >
-              <Dumbbell className="w-4 h-4" /> + Añadir Ejercicio ({catalog.length})
+              <Dumbbell className="w-4 h-4" /> + Añadir / Recuperar Ejercicio a esta Sesión
             </button>
           </div>
         </div>
       )}
 
-      {/* ================= 4. PESTAÑA: HISTORIAL ================= */}
+      {/* ================= 4. PESTAÑA: HISTORIAL (CON DESPLIEGUE INTERACTIVO DE SERIES) ================= */}
       {activeTab === 'history' && (
         <div className="space-y-4">
           <header className="border-b border-neutral-800 pb-4 mb-4">
@@ -1436,25 +1723,73 @@ export default function ActiveWorkoutPage() {
             </div>
           ) : historyList.length > 0 ? (
             <div className="space-y-3">
-              {historyList.map((item) => (
-                <div key={item.id} className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 shadow-lg">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <Calendar className="w-3.5 h-3.5 text-lime-400" />
-                        <span className="text-xs text-neutral-400">
-                          {new Date(item.completed_at).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}
-                        </span>
+              {historyList.map((item) => {
+                const isExpanded = expandedWorkoutId === item.id
+                const sets = workoutSetsDetails[item.id] || []
+
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => toggleWorkoutDetails(item.id)}
+                    className={`bg-neutral-900 border rounded-2xl p-4 shadow-lg cursor-pointer transition ${
+                      isExpanded ? 'border-lime-400/50' : 'border-neutral-800 hover:border-neutral-700'
+                    }`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <Calendar className="w-3.5 h-3.5 text-lime-400" />
+                          <span className="text-xs text-neutral-400">
+                            {new Date(item.completed_at).toLocaleDateString('es-ES', {
+                              weekday: 'short',
+                              day: 'numeric',
+                              month: 'short',
+                            })}
+                          </span>
+                        </div>
+                        <h3 className="text-base font-bold text-white flex items-center gap-1.5">
+                          {item.name}
+                        </h3>
                       </div>
-                      <h3 className="text-base font-bold text-white">{item.name}</h3>
+
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <span className="text-[10px] uppercase font-bold text-neutral-500 block">Volumen</span>
+                          <span className="text-base font-extrabold font-mono text-lime-400">{item.total_volume_kg || 0} kg</span>
+                        </div>
+                        <ChevronRight
+                          className={`w-4 h-4 text-neutral-400 transition-transform ${
+                            isExpanded ? 'rotate-90 text-lime-400' : ''
+                          }`}
+                        />
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <span className="text-[10px] uppercase font-bold text-neutral-500 block">Volumen</span>
-                      <span className="text-base font-extrabold font-mono text-lime-400">{item.total_volume_kg || 0} kg</span>
-                    </div>
+
+                    {/* VISTA DESPLEGABLE DE SERIES */}
+                    {isExpanded && (
+                      <div className="mt-3 pt-3 border-t border-neutral-800/80 space-y-2">
+                        {isLoadingSets && sets.length === 0 ? (
+                          <div className="py-2 text-center text-xs text-neutral-500">Cargando series...</div>
+                        ) : sets.length > 0 ? (
+                          sets.map((s: any, sIdx: number) => (
+                            <div
+                              key={s.id || sIdx}
+                              className="flex justify-between items-center bg-neutral-950/80 border border-neutral-800/60 px-3 py-1.5 rounded-xl text-xs"
+                            >
+                              <span className="text-neutral-300 font-semibold">Serie #{s.set_number}</span>
+                              <span className="font-mono text-lime-400 font-bold">
+                                {s.weight_kg} kg × {s.reps} reps (RIR {s.rir}) {s.is_pr && '⭐ PR'}
+                              </span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="py-2 text-center text-xs text-neutral-500">No se encontraron series para esta sesión.</div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           ) : (
             <div className="text-center py-20 bg-neutral-900/50 border border-neutral-800 rounded-3xl p-6">
@@ -1465,12 +1800,22 @@ export default function ActiveWorkoutPage() {
         </div>
       )}
 
-      {/* ================= 5. PESTAÑA: BIBLIOTECA ANATÓMICA ================= */}
+      {/* ================= 5. PESTAÑA: BIBLIOTECA (CON BOTÓN DE CREAR EJERCICIO) ================= */}
       {activeTab === 'library' && (
         <div className="space-y-4">
-          <header className="border-b border-neutral-800 pb-3 mb-2">
-            <span className="text-[11px] uppercase tracking-wider text-lime-400 font-bold">Enciclopedia Completa</span>
-            <h1 className="text-xl font-extrabold text-neutral-100">Biblioteca Anatómica ({catalog.length} ejercicios)</h1>
+          <header className="flex items-center justify-between border-b border-neutral-800 pb-3 mb-2">
+            <div>
+              <span className="text-[11px] uppercase tracking-wider text-lime-400 font-bold">Enciclopedia Completa</span>
+              <h1 className="text-xl font-extrabold text-neutral-100">Biblioteca ({catalog.length})</h1>
+            </div>
+
+            {/* BOTÓN PARA AGREGAR NUEVOS EJERCICIOS A LA BIBLIOTECA */}
+            <button
+              onClick={() => setIsNewExerciseModalOpen(true)}
+              className="px-3 py-1.5 bg-lime-400 hover:bg-lime-300 text-neutral-950 font-extrabold text-xs rounded-xl flex items-center gap-1 shadow-md transition"
+            >
+              <PlusCircle className="w-3.5 h-3.5" /> + Crear
+            </button>
           </header>
 
           <div className="space-y-2">
@@ -1520,14 +1865,169 @@ export default function ActiveWorkoutPage() {
         </div>
       )}
 
-      {/* ================= MODAL: CREAR / EDITAR DÍA ================= */}
+      {/* ================= MODAL: CREAR EJERCICIO PROPIO ================= */}
+      {isNewExerciseModalOpen && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-3xl p-5 shadow-2xl space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
+              <h3 className="text-sm font-extrabold text-white flex items-center gap-1.5">
+                <PlusCircle className="w-4 h-4 text-lime-400" /> Registrar Nuevo Ejercicio
+              </h3>
+              <button onClick={() => setIsNewExerciseModalOpen(false)} className="p-1 text-neutral-400">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-bold text-neutral-400 block mb-1">Nombre del Ejercicio *</label>
+              <input
+                type="text"
+                placeholder="Ej. Press inclinado con pausa..."
+                value={newExName}
+                onChange={(e) => setNewExName(e.target.value)}
+                className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-lime-400"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[11px] font-bold text-neutral-400 block mb-1">Músculo Principal</label>
+                <select
+                  value={newExMuscle}
+                  onChange={(e) => setNewExMuscle(e.target.value)}
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-lime-400"
+                >
+                  {MUSCLE_FILTER_OPTIONS.filter((m) => m !== 'Todos').map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-neutral-400 block mb-1">Equipo</label>
+                <select
+                  value={newExEquipment}
+                  onChange={(e) => setNewExEquipment(e.target.value)}
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-lime-400"
+                >
+                  <option value="Barra">Barra</option>
+                  <option value="Mancuerna">Mancuerna</option>
+                  <option value="Polea">Polea</option>
+                  <option value="Máquina">Máquina</option>
+                  <option value="Corporal / Lastre">Corporal / Lastre</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-bold text-neutral-400 block mb-1">Músculos Secundarios (Opcional)</label>
+              <input
+                type="text"
+                placeholder="Ej. Deltoides anterior, Tríceps..."
+                value={newExSecondary}
+                onChange={(e) => setNewExSecondary(e.target.value)}
+                className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-lime-400"
+              />
+            </div>
+
+            <div>
+              <label className="text-[11px] font-bold text-neutral-400 block mb-1">URL de GIF o Imagen (Opcional)</label>
+              <input
+                type="text"
+                placeholder="https://... o dejar en blanco"
+                value={newExUrl}
+                onChange={(e) => setNewExUrl(e.target.value)}
+                className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-lime-400"
+              />
+            </div>
+
+            <div className="pt-2 flex gap-2">
+              <button
+                onClick={handleCreateCustomCatalogExercise}
+                className="flex-1 py-2.5 bg-lime-400 hover:bg-lime-300 text-neutral-950 font-bold text-xs rounded-xl transition"
+              >
+                Guardar Ejercicio
+              </button>
+              <button
+                onClick={() => setIsNewExerciseModalOpen(false)}
+                className="px-4 py-2.5 bg-neutral-800 text-neutral-300 text-xs rounded-xl"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: AÑADIR EJERCICIO AL ENTRENAMIENTO EN VIVO ================= */}
+      {isAddLiveExerciseOpen && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-3xl p-5 shadow-2xl max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
+              <h3 className="text-sm font-extrabold text-white flex items-center gap-1.5">
+                <Dumbbell className="w-4 h-4 text-lime-400" /> Añadir a Sesión Activa
+              </h3>
+              <button onClick={() => setIsAddLiveExerciseOpen(false)} className="p-1 text-neutral-400">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="py-2 space-y-2">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  value={liveSearchQuery}
+                  onChange={(e) => setLiveSearchQuery(e.target.value)}
+                  placeholder="Buscar ejercicio..."
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl pl-8 pr-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-lime-400"
+                />
+              </div>
+
+              <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-thin">
+                {MUSCLE_FILTER_OPTIONS.map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => setLiveMuscleFilter(m)}
+                    className={`px-2 py-0.5 rounded-lg text-[10px] font-bold whitespace-nowrap transition border ${
+                      liveMuscleFilter === m
+                        ? 'bg-lime-400 text-neutral-950 border-lime-400'
+                        : 'bg-neutral-950 border-neutral-800 text-neutral-400'
+                    }`}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
+              {filteredLiveExercises.map((catEx) => (
+                <div
+                  key={catEx.id}
+                  onClick={() => handleAddExerciseToLiveWorkout(catEx)}
+                  className="p-2 rounded-xl border border-neutral-800 bg-neutral-950 hover:border-lime-400/60 flex items-center justify-between cursor-pointer transition text-xs"
+                >
+                  <div className="truncate pr-2">
+                    <span className="font-bold text-white block truncate">{catEx.name}</span>
+                    <span className="text-[10px] text-lime-400">{catEx.target_muscle}</span>
+                  </div>
+                  <Plus className="w-4 h-4 text-lime-400 shrink-0" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: CREAR / EDITAR DÍA (CON REORDENAR FLECHAS) ================= */}
       {isDayModalOpen && (
         <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-3xl p-5 shadow-2xl max-h-[92vh] flex flex-col">
             <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
               <h3 className="text-base font-extrabold text-white flex items-center gap-1.5">
                 <Sparkles className="w-4 h-4 text-lime-400" />
-                {editingDayId ? 'Editar Día' : 'Añadir Día'}
+                {editingDayId ? 'Editar y Ordenar Día' : 'Añadir Día'}
               </h3>
               <button
                 onClick={() => setIsDayModalOpen(false)}
@@ -1572,28 +2072,48 @@ export default function ActiveWorkoutPage() {
                 />
               </div>
 
-              {/* Ajuste manual de Series, Reps y Peso */}
+              {/* LISTA DE EJERCICIOS CON BOTONES PARA REORDENAR Y CONFIGURAR */}
               {modalItems.length > 0 && (
                 <div className="space-y-2 bg-neutral-950 p-3 rounded-2xl border border-neutral-800">
                   <span className="text-[11px] font-bold text-lime-400 uppercase tracking-wider block">
-                    Configuración de Series ({modalItems.length} ejercicios):
+                    Orden y Series ({modalItems.length} ejercicios):
                   </span>
                   <div className="space-y-2.5 max-h-48 overflow-y-auto pr-1">
-                    {modalItems.map((item) => {
+                    {modalItems.map((item, mIdx) => {
                       const ex = catalog.find((c) => c.id === item.exerciseId)
                       return (
                         <div key={item.exerciseId} className="bg-neutral-900 p-2.5 rounded-xl border border-neutral-800/80 space-y-1.5">
                           <div className="flex justify-between items-center">
-                            <span className="text-xs font-bold text-white truncate max-w-[190px]">
-                              {ex?.name || item.exerciseId}
+                            <span className="text-xs font-bold text-white truncate max-w-[160px]">
+                              {mIdx + 1}. {ex?.name || item.exerciseId}
                             </span>
-                            <button
-                              type="button"
-                              onClick={() => toggleModalExercise(item.exerciseId)}
-                              className="text-neutral-500 hover:text-red-400"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
+
+                            <div className="flex items-center gap-1">
+                              {/* FLECHAS PARA REORDENAR */}
+                              <button
+                                type="button"
+                                onClick={() => moveModalItem(mIdx, 'up')}
+                                disabled={mIdx === 0}
+                                className="p-1 bg-neutral-950 text-neutral-400 disabled:opacity-30 rounded"
+                              >
+                                <ArrowUp className="w-3 h-3" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => moveModalItem(mIdx, 'down')}
+                                disabled={mIdx === modalItems.length - 1}
+                                className="p-1 bg-neutral-950 text-neutral-400 disabled:opacity-30 rounded"
+                              >
+                                <ArrowDown className="w-3 h-3" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => toggleModalExercise(item.exerciseId)}
+                                className="text-neutral-500 hover:text-red-400 ml-1"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </div>
 
                           <div className="grid grid-cols-3 gap-2 text-center text-[10px] text-neutral-400">
@@ -1643,7 +2163,7 @@ export default function ActiveWorkoutPage() {
                 </div>
               )}
 
-              {/* Filtro y buscador para añadir ejercicios */}
+              {/* BÚSQUEDA Y SELECCIÓN DE EJERCICIOS */}
               <div className="space-y-1.5 pt-1">
                 <span className="text-xs font-bold text-neutral-300 block">
                   Añadir ejercicios del catálogo:
@@ -1677,7 +2197,6 @@ export default function ActiveWorkoutPage() {
                 </div>
               </div>
 
-              {/* Lista para marcar o desmarcar */}
               <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
                 {filteredModalExercises.map((ex) => {
                   const isSelected = modalItems.some((i) => i.exerciseId === ex.id)
