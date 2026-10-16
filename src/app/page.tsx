@@ -101,7 +101,6 @@ interface WorkoutProgram {
   days: ProgramDay[]
 }
 
-// Reproductor de sonido nativo
 function playBeepSound() {
   try {
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
@@ -290,17 +289,14 @@ export default function ActiveWorkoutPage() {
   const [authError, setAuthError] = useState('')
   const [authSubmitting, setAuthSubmitting] = useState(false)
 
-  // 5 Pestañas
   const [activeTab, setActiveTab] = useState<'home' | 'workout' | 'routines' | 'history' | 'library'>('home')
   const [bodyWeightKg, setBodyWeightKg] = useState<number>(80)
 
-  // Catálogo extendible
   const [catalog, setCatalog] = useState<CatalogExercise[]>(ANATOMICAL_EXERCISES)
   const [libraryMuscleFilter, setLibraryMuscleFilter] = useState('Todos')
   const [librarySearchQuery, setLibrarySearchQuery] = useState('')
   const [selectedPreview, setSelectedPreview] = useState<CatalogExercise | null>(null)
 
-  // Modal para agregar nuevo ejercicio a la biblioteca
   const [isNewExerciseModalOpen, setIsNewExerciseModalOpen] = useState(false)
   const [newExName, setNewExName] = useState('')
   const [newExMuscle, setNewExMuscle] = useState('Pecho')
@@ -308,12 +304,10 @@ export default function ActiveWorkoutPage() {
   const [newExEquipment, setNewExEquipment] = useState('Barra')
   const [newExUrl, setNewExUrl] = useState('')
 
-  // Programas y Días
   const [programsList, setProgramsList] = useState<WorkoutProgram[]>([DEFAULT_5_DAY_PROGRAM])
   const [selectedProgramId, setSelectedProgramId] = useState<string>(DEFAULT_5_DAY_PROGRAM.id)
   const [activeDayIndex, setActiveDayIndex] = useState<number>(0)
 
-  // Modales Programas y Días
   const [isCreatingProgram, setIsCreatingProgram] = useState(false)
   const [newProgramName, setNewProgramName] = useState('')
   const [newProgramDesc, setNewProgramDesc] = useState('')
@@ -327,29 +321,23 @@ export default function ActiveWorkoutPage() {
   const [modalMuscleFilter, setModalMuscleFilter] = useState('Todos')
   const [modalSearchQuery, setModalSearchQuery] = useState('')
 
-  // Modal Agregar ejercicio al entrenamiento en vivo
   const [isAddLiveExerciseOpen, setIsAddLiveExerciseOpen] = useState(false)
   const [liveSearchQuery, setLiveSearchQuery] = useState('')
   const [liveMuscleFilter, setLiveMuscleFilter] = useState('Todos')
 
-  // Modal Sustitución directa de ejercicio en vivo
   const [substitutingExerciseId, setSubstitutingExerciseId] = useState<string | null>(null)
 
-  // Modal Editar Sesión Pasada del Historial
   const [editingWorkout, setEditingWorkout] = useState<PastWorkout | null>(null)
   const [editingWorkoutSets, setEditingWorkoutSets] = useState<any[]>([])
   const [isSavingHistoryEdit, setIsSavingHistoryEdit] = useState(false)
 
-  // Sesión y Cronómetro
   const [workoutName, setWorkoutName] = useState('Torso A (Fuerza e Hipertrofia)')
   const [sessionSeconds, setSessionSeconds] = useState(0)
   const [isSessionRunning, setIsSessionRunning] = useState(false)
 
-  // Descanso
   const [restSeconds, setRestSeconds] = useState<number | null>(null)
   const [isRestActive, setIsRestActive] = useState(false)
 
-  // Supabase persistencia e Historial
   const [isSaving, setIsSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [historyList, setHistoryList] = useState<PastWorkout[]>([])
@@ -360,14 +348,11 @@ export default function ActiveWorkoutPage() {
   const [isSummaryOpen, setIsSummaryOpen] = useState(false)
   const historyLoadedRef = useRef(false)
 
-  // Calculadora 1RM interactiva
   const [calcWeight, setCalcWeight] = useState<number>(80)
   const [calcReps, setCalcReps] = useState<number>(8)
 
-  // Ejercicios activos
   const [exercises, setExercises] = useState<WorkoutExercise[]>([])
 
-  // Cargar ejercicios de localStorage
   useEffect(() => {
     try {
       const customSaved = localStorage.getItem('user_custom_library_exercises')
@@ -384,7 +369,6 @@ export default function ActiveWorkoutPage() {
     }
   }, [])
 
-  // Inicializar ejercicios de Día 1 con tipo estricto
   useEffect(() => {
     if (exercises.length === 0 && DEFAULT_5_DAY_PROGRAM.days[0]) {
       const d1 = DEFAULT_5_DAY_PROGRAM.days[0]
@@ -419,7 +403,6 @@ export default function ActiveWorkoutPage() {
     }
   }, [catalog, exercises.length])
 
-  // Carga de rutinas de localStorage
   useEffect(() => {
     try {
       const saved =
@@ -469,7 +452,6 @@ export default function ActiveWorkoutPage() {
     }
   }
 
-  // Auth Supabase
   useEffect(() => {
     const supabase = createClient()
     if (!supabase) {
@@ -564,7 +546,7 @@ export default function ActiveWorkoutPage() {
     }
   }, [activeTab, user])
 
-  // Desplegar detalles de series en historial
+  // CORREGIDO: Consulta por set_number (no created_at) y respaldo seguro
   const toggleWorkoutDetails = async (workoutId: string) => {
     if (expandedWorkoutId === workoutId) {
       setExpandedWorkoutId(null)
@@ -572,7 +554,7 @@ export default function ActiveWorkoutPage() {
     }
     setExpandedWorkoutId(workoutId)
 
-    if (workoutSetsDetails[workoutId]) return
+    if (workoutSetsDetails[workoutId] && workoutSetsDetails[workoutId].length > 0) return
 
     setIsLoadingSets(true)
     try {
@@ -582,19 +564,28 @@ export default function ActiveWorkoutPage() {
         .from('workout_sets')
         .select('*')
         .eq('workout_id', workoutId)
-        .order('created_at', { ascending: true })
+        .order('set_number', { ascending: true })
 
-      if (data && !error) {
+      if (data && !error && data.length > 0) {
         setWorkoutSetsDetails((prev) => ({ ...prev, [workoutId]: data }))
+      } else {
+        // Respaldo de localStorage si Supabase no tiene el set
+        const localBackup = localStorage.getItem(`workout_sets_${workoutId}`)
+        if (localBackup) {
+          setWorkoutSetsDetails((prev) => ({ ...prev, [workoutId]: JSON.parse(localBackup) }))
+        }
       }
     } catch (err) {
       console.warn('Error cargando series:', err)
+      const localBackup = localStorage.getItem(`workout_sets_${workoutId}`)
+      if (localBackup) {
+        setWorkoutSetsDetails((prev) => ({ ...prev, [workoutId]: JSON.parse(localBackup) }))
+      }
     } finally {
       setIsLoadingSets(false)
     }
   }
 
-  // Eliminar sesión del historial
   const deleteWorkout = async (workoutId: string, e: React.MouseEvent) => {
     e.stopPropagation()
     if (!confirm('¿Estás seguro de que deseas eliminar esta sesión del historial?')) return
@@ -606,19 +597,19 @@ export default function ActiveWorkoutPage() {
         await supabase.from('workouts').delete().eq('id', workoutId)
       }
       setHistoryList((prev) => prev.filter((w) => w.id !== workoutId))
+      localStorage.removeItem(`workout_sets_${workoutId}`)
       if (expandedWorkoutId === workoutId) setExpandedWorkoutId(null)
     } catch (err) {
       console.warn('Error eliminando sesión:', err)
     }
   }
 
-  // Abrir editor de sesión pasada
   const openEditWorkoutModal = async (workout: PastWorkout, e: React.MouseEvent) => {
     e.stopPropagation()
     setEditingWorkout(workout)
 
     let sets = workoutSetsDetails[workout.id]
-    if (!sets) {
+    if (!sets || sets.length === 0) {
       try {
         const supabase = createClient()
         if (supabase) {
@@ -626,8 +617,8 @@ export default function ActiveWorkoutPage() {
             .from('workout_sets')
             .select('*')
             .eq('workout_id', workout.id)
-            .order('created_at', { ascending: true })
-          if (data) sets = data
+            .order('set_number', { ascending: true })
+          if (data && data.length > 0) sets = data
         }
       } catch (err) {
         console.warn('Error cargando series para editar:', err)
@@ -636,7 +627,6 @@ export default function ActiveWorkoutPage() {
     setEditingWorkoutSets(JSON.parse(JSON.stringify(sets || [])))
   }
 
-  // Guardar edición de sesión pasada
   const handleSaveWorkoutEdit = async () => {
     if (!editingWorkout) return
     setIsSavingHistoryEdit(true)
@@ -682,6 +672,7 @@ export default function ActiveWorkoutPage() {
         ...prev,
         [editingWorkout.id]: editingWorkoutSets,
       }))
+      localStorage.setItem(`workout_sets_${editingWorkout.id}`, JSON.stringify(editingWorkoutSets))
 
       setEditingWorkout(null)
     } catch (err) {
@@ -692,7 +683,6 @@ export default function ActiveWorkoutPage() {
     }
   }
 
-  // Cronómetro de sesión
   useEffect(() => {
     let interval: NodeJS.Timeout
     if (isSessionRunning) {
@@ -701,7 +691,6 @@ export default function ActiveWorkoutPage() {
     return () => clearInterval(interval)
   }, [isSessionRunning])
 
-  // Temporizador de descanso con pitido final
   useEffect(() => {
     let interval: NodeJS.Timeout
     if (isRestActive && restSeconds !== null && restSeconds > 0) {
@@ -735,7 +724,7 @@ export default function ActiveWorkoutPage() {
     return calculate1RM(calcWeight, calcReps)
   }, [calcWeight, calcReps])
 
-  // Completar serie con lógica de biseries
+  // CORREGIDO: Lógica precisa de biseries y descansos
   const toggleSetComplete = (exerciseId: string, setId: string) => {
     if (!isSessionRunning) setIsSessionRunning(true)
 
@@ -743,11 +732,35 @@ export default function ActiveWorkoutPage() {
       const currentEx = prev.find((e) => e.id === exerciseId)
       const currentSuperset = currentEx?.supersetGroup
 
-      let shouldTriggerRest = true
-      if (currentSuperset) {
+      let shouldTriggerRest = false
+
+      if (!currentSuperset) {
+        // Ejercicio normal: salta descanso en cada serie completada
+        const targetSet = currentEx?.sets.find((s) => s.id === setId)
+        shouldTriggerRest = targetSet ? !targetSet.isCompleted : false
+      } else {
+        // En Biserie: buscar los ejercicios que comparten la misma letra (ej: 'A')
         const groupExercises = prev.filter((e) => e.supersetGroup === currentSuperset)
-        const lastExerciseInGroup = groupExercises[groupExercises.length - 1]
-        shouldTriggerRest = lastExerciseInGroup?.id === exerciseId
+        const isLastExerciseInGroup = groupExercises[groupExercises.length - 1]?.id === exerciseId
+        const currentSet = currentEx?.sets.find((s) => s.id === setId)
+        const targetSetNumber = currentSet?.setNumber || 1
+        const willBeCompleted = currentSet ? !currentSet.isCompleted : false
+
+        if (willBeCompleted && isLastExerciseInGroup) {
+          // Verificar si el primer ejercicio ya tiene esta misma serie completada (Ronda terminada)
+          const firstEx = groupExercises[0]
+          const firstExMatchingSet = firstEx?.sets.find((s) => s.setNumber === targetSetNumber)
+
+          // Si el primer ejercicio ya hizo esta serie O si completó todas sus series previas
+          if (firstExMatchingSet?.isCompleted || firstEx?.sets.every((s) => s.isCompleted)) {
+            shouldTriggerRest = true
+          }
+        }
+      }
+
+      if (shouldTriggerRest) {
+        setRestSeconds(90)
+        setIsRestActive(true)
       }
 
       return prev.map((ex) => {
@@ -756,12 +769,7 @@ export default function ActiveWorkoutPage() {
           ...ex,
           sets: ex.sets.map((set) => {
             if (set.id !== setId) return set
-            const nextCompleted = !set.isCompleted
-            if (nextCompleted && shouldTriggerRest) {
-              setRestSeconds(90)
-              setIsRestActive(true)
-            }
-            return { ...set, isCompleted: nextCompleted }
+            return { ...set, isCompleted: !set.isCompleted }
           }),
         }
       })
@@ -879,7 +887,6 @@ export default function ActiveWorkoutPage() {
     setModalItems(reordered)
   }
 
-  // Sustituir ejercicio en vivo
   const handleSubstituteExercise = (replacementEx: CatalogExercise) => {
     if (!substitutingExerciseId) return
 
@@ -1243,7 +1250,7 @@ export default function ActiveWorkoutPage() {
     })
   }, [catalog, liveSearchQuery, liveMuscleFilter])
 
-  // Desglose profesional agrupado por ejercicio en el historial
+  // CORREGIDO: Emparejamiento por ID o por Nombre para que NUNCA quede vacío
   const groupedWorkoutSets = useMemo(() => {
     if (!expandedWorkoutId || !workoutSetsDetails[expandedWorkoutId]) return []
     const rawSets = workoutSetsDetails[expandedWorkoutId]
@@ -1252,9 +1259,18 @@ export default function ActiveWorkoutPage() {
 
     rawSets.forEach((s) => {
       const exInfo =
-        catalog.find((c) => c.id === s.exercise_id) ||
-        ANATOMICAL_EXERCISES.find((c) => c.id === s.exercise_id)
-      const name = exInfo ? exInfo.name : `Ejercicio (${s.exercise_id})`
+        catalog.find(
+          (c) =>
+            c.id === s.exercise_id ||
+            c.name.toLowerCase() === (s.exercise_id || '').toLowerCase()
+        ) ||
+        ANATOMICAL_EXERCISES.find(
+          (c) =>
+            c.id === s.exercise_id ||
+            c.name.toLowerCase() === (s.exercise_id || '').toLowerCase()
+        )
+
+      const name = exInfo ? exInfo.name : s.exercise_id || 'Ejercicio Registrado'
 
       let grp = groups.find((g) => g.exerciseName === name)
       if (!grp) {
@@ -1312,6 +1328,9 @@ export default function ActiveWorkoutPage() {
 
         if (setsToInsert.length > 0) {
           await supabase.from('workout_sets').insert(setsToInsert)
+          // Guardar copia local de seguridad inmediata
+          localStorage.setItem(`workout_sets_${workout.id}`, JSON.stringify(setsToInsert))
+          setWorkoutSetsDetails((prev) => ({ ...prev, [workout.id]: setsToInsert }))
         }
       }
 
@@ -1438,7 +1457,6 @@ export default function ActiveWorkoutPage() {
             </div>
           </header>
 
-          {/* Banner sesión activa */}
           {(sessionSeconds > 0 || workoutStats.totalCompletedSets > 0) && (
             <div
               onClick={() => setActiveTab('workout')}
@@ -1461,7 +1479,6 @@ export default function ActiveWorkoutPage() {
             </div>
           )}
 
-          {/* Métricas rápidas */}
           <div className="grid grid-cols-3 gap-2.5">
             <div className="bg-neutral-900 border border-neutral-800/90 rounded-2xl p-3">
               <span className="text-[10px] uppercase font-bold text-neutral-400 block">Sesiones</span>
@@ -1482,7 +1499,6 @@ export default function ActiveWorkoutPage() {
             </div>
           </div>
 
-          {/* Tarjeta de acciones rápidas */}
           <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div>
@@ -1518,7 +1534,6 @@ export default function ActiveWorkoutPage() {
             </div>
           </div>
 
-          {/* CALCULADORA DE 1RM INTERACTIVA */}
           <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-4 space-y-3 shadow-lg">
             <div className="flex items-center justify-between border-b border-neutral-800 pb-2">
               <div className="flex items-center gap-1.5">
@@ -1890,7 +1905,6 @@ export default function ActiveWorkoutPage() {
                     </div>
                   </div>
 
-                  {/* NOTA DEL EJERCICIO */}
                   <div className="mb-2">
                     <div className="flex items-center gap-1.5 bg-neutral-950/80 px-2 py-1 rounded-lg border border-neutral-800/60">
                       <MessageSquare className="w-3 h-3 text-lime-400 shrink-0" />
@@ -1904,7 +1918,6 @@ export default function ActiveWorkoutPage() {
                     </div>
                   </div>
 
-                  {/* TABLA DE SERIES */}
                   <div className="grid grid-cols-12 text-[10px] text-neutral-400 uppercase font-semibold mb-1 px-1 text-center">
                     <span className="col-span-2 text-left">Serie</span>
                     <span className="col-span-3">Kg</span>
@@ -2618,7 +2631,6 @@ export default function ActiveWorkoutPage() {
                 />
               </div>
 
-              {/* LISTA DE EJERCICIOS CON BOTONES PARA REORDENAR Y CONFIGURAR */}
               {modalItems.length > 0 && (
                 <div className="space-y-2 bg-neutral-950 p-3 rounded-2xl border border-neutral-800">
                   <span className="text-[11px] font-bold text-lime-400 uppercase tracking-wider block">
@@ -2720,7 +2732,6 @@ export default function ActiveWorkoutPage() {
                 </div>
               )}
 
-              {/* BÚSQUEDA Y SELECCIÓN DE EJERCICIOS */}
               <div className="space-y-1.5 pt-1">
                 <span className="text-xs font-bold text-neutral-300 block">
                   Añadir ejercicios del catálogo:
