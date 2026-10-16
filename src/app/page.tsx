@@ -384,12 +384,23 @@ export default function ActiveWorkoutPage() {
     }
   }, [])
 
-  // Inicializar ejercicios de Día 1
+  // Inicializar ejercicios de Día 1 con tipo estricto
   useEffect(() => {
     if (exercises.length === 0 && DEFAULT_5_DAY_PROGRAM.days[0]) {
       const d1 = DEFAULT_5_DAY_PROGRAM.days[0]
-      const built = d1.items.map((item, idx) => {
+      const built: WorkoutExercise[] = d1.items.map((item, idx) => {
         const catEx = catalog.find((c) => c.id === item.exerciseId) || catalog[0]
+        const defaultSets: ExerciseSet[] = Array.from({ length: item.setsCount }).map((_, sIdx) => ({
+          id: `set-init-${idx}-${sIdx}`,
+          setNumber: sIdx + 1,
+          weight: item.defaultWeight,
+          reps: item.defaultReps,
+          rir: item.defaultRir,
+          isCompleted: false,
+          isPr: false,
+          setType: 'normal' as const,
+        }))
+
         return {
           id: `wex-init-${idx}`,
           exerciseId: catEx.id,
@@ -400,16 +411,7 @@ export default function ActiveWorkoutPage() {
           previousBest: `${item.defaultWeight} kg × ${item.defaultReps}`,
           note: item.note || '',
           supersetGroup: item.supersetGroup || '',
-          sets: Array.from({ length: item.setsCount }).map((_, sIdx) => ({
-            id: `set-init-${idx}-${sIdx}`,
-            setNumber: sIdx + 1,
-            weight: item.defaultWeight,
-            reps: item.defaultReps,
-            rir: item.defaultRir,
-            isCompleted: false,
-            isPr: false,
-            setType: 'normal',
-          })),
+          sets: defaultSets,
         }
       })
       setExercises(built)
@@ -647,7 +649,6 @@ export default function ActiveWorkoutPage() {
 
       const supabase = createClient()
       if (supabase) {
-        // Actualizar sesión principal
         await supabase
           .from('workouts')
           .update({
@@ -656,7 +657,6 @@ export default function ActiveWorkoutPage() {
           })
           .eq('id', editingWorkout.id)
 
-        // Actualizar cada serie modificada
         for (const s of editingWorkoutSets) {
           if (s.id) {
             await supabase
@@ -671,7 +671,6 @@ export default function ActiveWorkoutPage() {
         }
       }
 
-      // Actualizar estado local
       setHistoryList((prev) =>
         prev.map((w) =>
           w.id === editingWorkout.id
@@ -835,7 +834,7 @@ export default function ActiveWorkoutPage() {
           rir: 1,
           isCompleted: false,
           isPr: false,
-          setType: 'normal',
+          setType: 'normal' as const,
         }
         return { ...ex, sets: [...ex.sets, newSet] }
       })
@@ -912,9 +911,9 @@ export default function ActiveWorkoutPage() {
       previousBest: 'Registrar peso',
       note: 'Añadido extra en sesión',
       sets: [
-        { id: `s-live-1`, setNumber: 1, weight: 30, reps: 10, rir: 2, isCompleted: false, isPr: false, setType: 'normal' },
-        { id: `s-live-2`, setNumber: 2, weight: 30, reps: 10, rir: 1, isCompleted: false, isPr: false, setType: 'normal' },
-        { id: `s-live-3`, setNumber: 3, weight: 30, reps: 10, rir: 1, isCompleted: false, isPr: false, setType: 'normal' },
+        { id: `s-live-1`, setNumber: 1, weight: 30, reps: 10, rir: 2, isCompleted: false, isPr: false, setType: 'normal' as const },
+        { id: `s-live-2`, setNumber: 2, weight: 30, reps: 10, rir: 1, isCompleted: false, isPr: false, setType: 'normal' as const },
+        { id: `s-live-3`, setNumber: 3, weight: 30, reps: 10, rir: 1, isCompleted: false, isPr: false, setType: 'normal' as const },
       ],
     }
     setExercises((prev) => [...prev, newEx])
@@ -970,7 +969,7 @@ export default function ActiveWorkoutPage() {
         rir: item.defaultRir,
         isCompleted: false,
         isPr: sIdx === item.setsCount - 1,
-        setType: 'normal',
+        setType: 'normal' as const,
       }))
 
       return {
@@ -1571,7 +1570,7 @@ export default function ActiveWorkoutPage() {
         </div>
       )}
 
-      {/* ================= 2. RUTINAS (CON ASIGNACIÓN DE BISERIES EN DÍAS) ================= */}
+      {/* ================= 2. RUTINAS ================= */}
       {activeTab === 'routines' && (
         <div className="space-y-4">
           <header className="flex items-center justify-between border-b border-neutral-800 pb-3">
@@ -1751,7 +1750,7 @@ export default function ActiveWorkoutPage() {
         </div>
       )}
 
-      {/* ================= 3. ENTRENAR (CON SUSTITUIR, NOTAS Y BISERIES VISUALES) ================= */}
+      {/* ================= 3. ENTRENAR ================= */}
       {activeTab === 'workout' && (
         <div>
           <header className="border-b border-neutral-800 pb-3.5 mb-4">
@@ -1845,7 +1844,6 @@ export default function ActiveWorkoutPage() {
                               1RM: {best1RM} kg
                             </span>
                           )}
-                          {/* BOTÓN SUPER-SERIE */}
                           <button
                             onClick={() => toggleSupersetGroup(ex.id)}
                             className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-neutral-950 hover:bg-neutral-800 text-neutral-400 hover:text-white border border-neutral-800 flex items-center gap-1"
@@ -1859,7 +1857,6 @@ export default function ActiveWorkoutPage() {
                     </div>
 
                     <div className="flex items-center gap-1">
-                      {/* BOTÓN SUSTITUIR CLARO */}
                       <button
                         onClick={() => setSubstitutingExerciseId(ex.id)}
                         className="px-2 py-1 bg-neutral-950 hover:bg-neutral-800 text-lime-400 border border-neutral-800 rounded-lg text-[10px] font-bold flex items-center gap-1 transition"
@@ -1933,7 +1930,6 @@ export default function ActiveWorkoutPage() {
                             </button>
                             {set.isPr && <Trophy className="w-3 h-3 text-yellow-400 inline" />}
                           </div>
-                          {/* SELECTOR DE DROP SET / REST PAUSE / AL FALLO */}
                           <button
                             type="button"
                             onClick={() => cycleSetType(ex.id, set.id)}
@@ -2042,7 +2038,7 @@ export default function ActiveWorkoutPage() {
         </div>
       )}
 
-      {/* ================= 4. HISTORIAL (CON BORRAR, EDITAR Y DESPLEGABLE PROFESIONAL AGRUPADO) ================= */}
+      {/* ================= 4. HISTORIAL ================= */}
       {activeTab === 'history' && (
         <div className="space-y-4">
           <header className="border-b border-neutral-800 pb-4 mb-4">
@@ -2091,7 +2087,6 @@ export default function ActiveWorkoutPage() {
                           <span className="text-base font-extrabold font-mono text-lime-400">{item.total_volume_kg || 0} kg</span>
                         </div>
 
-                        {/* BOTÓN EDITAR SESIÓN */}
                         <button
                           onClick={(e) => openEditWorkoutModal(item, e)}
                           className="p-1.5 bg-neutral-950 hover:bg-neutral-800 text-neutral-400 hover:text-white rounded-lg transition"
@@ -2100,7 +2095,6 @@ export default function ActiveWorkoutPage() {
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
 
-                        {/* BOTÓN BORRAR SESIÓN */}
                         <button
                           onClick={(e) => deleteWorkout(item.id, e)}
                           className="p-1.5 bg-neutral-950 hover:bg-red-950/60 text-neutral-500 hover:text-red-400 rounded-lg transition"
@@ -2117,7 +2111,6 @@ export default function ActiveWorkoutPage() {
                       </div>
                     </div>
 
-                    {/* DESPLEGABLE PROFESIONAL AGRUPADO POR EJERCICIO */}
                     {isExpanded && (
                       <div className="mt-4 pt-3.5 border-t border-neutral-800 space-y-3.5">
                         {isLoadingSets && groupedWorkoutSets.length === 0 ? (
@@ -2146,7 +2139,6 @@ export default function ActiveWorkoutPage() {
                                 </div>
                               </div>
 
-                              {/* TABLA SERIE POR SERIE */}
                               <div className="space-y-1">
                                 <div className="grid grid-cols-12 text-[9px] text-neutral-500 uppercase font-bold px-2 text-center">
                                   <span className="col-span-3 text-left">Serie</span>
