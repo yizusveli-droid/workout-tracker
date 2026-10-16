@@ -15,7 +15,6 @@ import {
   Save,
   Loader2,
   Sparkles,
-  ArrowLeft,
   ArrowUp,
   ArrowDown,
   History,
@@ -37,6 +36,7 @@ import {
   RefreshCw,
   MessageSquare,
   Volume2,
+  Link2,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { ANATOMICAL_EXERCISES, CatalogExercise } from '@/data/exercises'
@@ -63,7 +63,7 @@ interface WorkoutExercise {
   anatomicalImageUrl: string
   previousBest?: string
   note?: string
-  supersetGroup?: string // Ej: 'A', 'B' para biseries A1, A2
+  supersetGroup?: string
   sets: ExerciseSet[]
 }
 
@@ -101,7 +101,7 @@ interface WorkoutProgram {
   days: ProgramDay[]
 }
 
-// Reproductor de sonido nativo sin dependencias externas
+// Reproductor de sonido nativo
 function playBeepSound() {
   try {
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
@@ -123,7 +123,6 @@ function playBeepSound() {
       }, delayMs)
     }
 
-    // Doble pitido (Beep - Beep)
     playTone(880, 0, 0.18)
     playTone(880, 240, 0.25)
 
@@ -131,7 +130,7 @@ function playBeepSound() {
       navigator.vibrate([200, 100, 250])
     }
   } catch (e) {
-    console.warn('AudioContext no soportado o bloqueado:', e)
+    console.warn('AudioContext no disponible:', e)
   }
 }
 
@@ -335,6 +334,11 @@ export default function ActiveWorkoutPage() {
 
   // Modal Sustitución directa de ejercicio en vivo
   const [substitutingExerciseId, setSubstitutingExerciseId] = useState<string | null>(null)
+
+  // Modal Editar Sesión Pasada del Historial
+  const [editingWorkout, setEditingWorkout] = useState<PastWorkout | null>(null)
+  const [editingWorkoutSets, setEditingWorkoutSets] = useState<any[]>([])
+  const [isSavingHistoryEdit, setIsSavingHistoryEdit] = useState(false)
 
   // Sesión y Cronómetro
   const [workoutName, setWorkoutName] = useState('Torso A (Fuerza e Hipertrofia)')
@@ -558,6 +562,7 @@ export default function ActiveWorkoutPage() {
     }
   }, [activeTab, user])
 
+  // Desplegar detalles de series en historial
   const toggleWorkoutDetails = async (workoutId: string) => {
     if (expandedWorkoutId === workoutId) {
       setExpandedWorkoutId(null)
@@ -575,7 +580,7 @@ export default function ActiveWorkoutPage() {
         .from('workout_sets')
         .select('*')
         .eq('workout_id', workoutId)
-        .order('set_number', { ascending: true })
+        .order('created_at', { ascending: true })
 
       if (data && !error) {
         setWorkoutSetsDetails((prev) => ({ ...prev, [workoutId]: data }))
@@ -584,6 +589,107 @@ export default function ActiveWorkoutPage() {
       console.warn('Error cargando series:', err)
     } finally {
       setIsLoadingSets(false)
+    }
+  }
+
+  // Eliminar sesión del historial
+  const deleteWorkout = async (workoutId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!confirm('¿Estás seguro de que deseas eliminar esta sesión del historial?')) return
+
+    try {
+      const supabase = createClient()
+      if (supabase) {
+        await supabase.from('workout_sets').delete().eq('workout_id', workoutId)
+        await supabase.from('workouts').delete().eq('id', workoutId)
+      }
+      setHistoryList((prev) => prev.filter((w) => w.id !== workoutId))
+      if (expandedWorkoutId === workoutId) setExpandedWorkoutId(null)
+    } catch (err) {
+      console.warn('Error eliminando sesión:', err)
+    }
+  }
+
+  // Abrir editor de sesión pasada
+  const openEditWorkoutModal = async (workout: PastWorkout, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setEditingWorkout(workout)
+
+    let sets = workoutSetsDetails[workout.id]
+    if (!sets) {
+      try {
+        const supabase = createClient()
+        if (supabase) {
+          const { data } = await supabase
+            .from('workout_sets')
+            .select('*')
+            .eq('workout_id', workout.id)
+            .order('created_at', { ascending: true })
+          if (data) sets = data
+        }
+      } catch (err) {
+        console.warn('Error cargando series para editar:', err)
+      }
+    }
+    setEditingWorkoutSets(JSON.parse(JSON.stringify(sets || [])))
+  }
+
+  // Guardar edición de sesión pasada
+  const handleSaveWorkoutEdit = async () => {
+    if (!editingWorkout) return
+    setIsSavingHistoryEdit(true)
+
+    try {
+      const totalVolume = editingWorkoutSets.reduce(
+        (acc, s) => acc + (Number(s.weight_kg) || 0) * (Number(s.reps) || 0),
+        0
+      )
+
+      const supabase = createClient()
+      if (supabase) {
+        // Actualizar sesión principal
+        await supabase
+          .from('workouts')
+          .update({
+            name: editingWorkout.name,
+            total_volume_kg: totalVolume,
+          })
+          .eq('id', editingWorkout.id)
+
+        // Actualizar cada serie modificada
+        for (const s of editingWorkoutSets) {
+          if (s.id) {
+            await supabase
+              .from('workout_sets')
+              .update({
+                weight_kg: Number(s.weight_kg) || 0,
+                reps: Number(s.reps) || 0,
+                rir: Number(s.rir) || 0,
+              })
+              .eq('id', s.id)
+          }
+        }
+      }
+
+      // Actualizar estado local
+      setHistoryList((prev) =>
+        prev.map((w) =>
+          w.id === editingWorkout.id
+            ? { ...w, name: editingWorkout.name, total_volume_kg: totalVolume }
+            : w
+        )
+      )
+      setWorkoutSetsDetails((prev) => ({
+        ...prev,
+        [editingWorkout.id]: editingWorkoutSets,
+      }))
+
+      setEditingWorkout(null)
+    } catch (err) {
+      console.warn('Error guardando cambios en sesión:', err)
+      alert('Error al guardar los cambios.')
+    } finally {
+      setIsSavingHistoryEdit(false)
     }
   }
 
@@ -638,12 +744,10 @@ export default function ActiveWorkoutPage() {
       const currentEx = prev.find((e) => e.id === exerciseId)
       const currentSuperset = currentEx?.supersetGroup
 
-      // Si tiene superserie, verificar si es el último ejercicio del grupo
       let shouldTriggerRest = true
       if (currentSuperset) {
         const groupExercises = prev.filter((e) => e.supersetGroup === currentSuperset)
         const lastExerciseInGroup = groupExercises[groupExercises.length - 1]
-        // Solo descansa si completamos la serie del último ejercicio de la biserie
         shouldTriggerRest = lastExerciseInGroup?.id === exerciseId
       }
 
@@ -776,7 +880,7 @@ export default function ActiveWorkoutPage() {
     setModalItems(reordered)
   }
 
-  // Sustituir ejercicio en vivo (solo para esta sesión)
+  // Sustituir ejercicio en vivo
   const handleSubstituteExercise = (replacementEx: CatalogExercise) => {
     if (!substitutingExerciseId) return
 
@@ -897,7 +1001,7 @@ export default function ActiveWorkoutPage() {
     textContent += `${currentProgram.description || ''}\n`
     textContent += `=====================================\n\n`
 
-    currentProgram.days.forEach((day, dIdx) => {
+    currentProgram.days.forEach((day) => {
       textContent += `[${day.dayBadge}] ${day.title} (${day.estimatedDuration})\n`
       if (day.subtitle) textContent += `Objetivo: ${day.subtitle}\n`
       textContent += `-------------------------------------\n`
@@ -1139,6 +1243,30 @@ export default function ActiveWorkoutPage() {
       return matchesSearch && matchesMuscle
     })
   }, [catalog, liveSearchQuery, liveMuscleFilter])
+
+  // Desglose profesional agrupado por ejercicio en el historial
+  const groupedWorkoutSets = useMemo(() => {
+    if (!expandedWorkoutId || !workoutSetsDetails[expandedWorkoutId]) return []
+    const rawSets = workoutSetsDetails[expandedWorkoutId]
+
+    const groups: { exerciseName: string; exerciseInfo?: CatalogExercise; sets: any[] }[] = []
+
+    rawSets.forEach((s) => {
+      const exInfo =
+        catalog.find((c) => c.id === s.exercise_id) ||
+        ANATOMICAL_EXERCISES.find((c) => c.id === s.exercise_id)
+      const name = exInfo ? exInfo.name : `Ejercicio (${s.exercise_id})`
+
+      let grp = groups.find((g) => g.exerciseName === name)
+      if (!grp) {
+        grp = { exerciseName: name, exerciseInfo: exInfo, sets: [] }
+        groups.push(grp)
+      }
+      grp.sets.push(s)
+    })
+
+    return groups
+  }, [expandedWorkoutId, workoutSetsDetails, catalog])
 
   const handleSaveWorkout = async () => {
     setIsSaving(true)
@@ -1443,7 +1571,7 @@ export default function ActiveWorkoutPage() {
         </div>
       )}
 
-      {/* ================= 2. RUTINAS ================= */}
+      {/* ================= 2. RUTINAS (CON ASIGNACIÓN DE BISERIES EN DÍAS) ================= */}
       {activeTab === 'routines' && (
         <div className="space-y-4">
           <header className="flex items-center justify-between border-b border-neutral-800 pb-3">
@@ -1623,7 +1751,7 @@ export default function ActiveWorkoutPage() {
         </div>
       )}
 
-      {/* ================= 3. ENTRENAR (CON NOTAS, SUSTITUCIÓN Y BISERIES VISUALES) ================= */}
+      {/* ================= 3. ENTRENAR (CON SUSTITUIR, NOTAS Y BISERIES VISUALES) ================= */}
       {activeTab === 'workout' && (
         <div>
           <header className="border-b border-neutral-800 pb-3.5 mb-4">
@@ -1717,28 +1845,28 @@ export default function ActiveWorkoutPage() {
                               1RM: {best1RM} kg
                             </span>
                           )}
-                          {/* BOTÓN VINCULAR SUPER-SERIE */}
+                          {/* BOTÓN SUPER-SERIE */}
                           <button
                             onClick={() => toggleSupersetGroup(ex.id)}
-                            className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-neutral-950 hover:bg-neutral-800 text-neutral-400 hover:text-white border border-neutral-800"
+                            className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-neutral-950 hover:bg-neutral-800 text-neutral-400 hover:text-white border border-neutral-800 flex items-center gap-1"
                             title="Vincular a superserie A, B, C..."
                           >
-                            🔗 {ex.supersetGroup ? `Grupo ${ex.supersetGroup}` : 'Superserie'}
+                            <Link2 className="w-3 h-3 text-lime-400" />
+                            {ex.supersetGroup ? `Biserie ${ex.supersetGroup}` : '+ Biserie'}
                           </button>
                         </div>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-1">
-                      {/* SUSTITUIR EJERCICIO DIRECTO */}
+                      {/* BOTÓN SUSTITUIR CLARO */}
                       <button
                         onClick={() => setSubstitutingExerciseId(ex.id)}
-                        className="p-1 bg-neutral-950 hover:bg-neutral-800 text-neutral-400 hover:text-lime-400 rounded-lg transition"
-                        title="Sustituir por otro ejercicio"
+                        className="px-2 py-1 bg-neutral-950 hover:bg-neutral-800 text-lime-400 border border-neutral-800 rounded-lg text-[10px] font-bold flex items-center gap-1 transition"
+                        title="Sustituir por otro ejercicio solo en esta sesión"
                       >
-                        <RefreshCw className="w-3.5 h-3.5" />
+                        <RefreshCw className="w-3 h-3" /> Sustituir
                       </button>
-                      {/* REORDENAR FLECHAS */}
                       <button
                         onClick={() => moveLiveExercise(index, 'up')}
                         disabled={index === 0}
@@ -1755,7 +1883,6 @@ export default function ActiveWorkoutPage() {
                       >
                         <ArrowDown className="w-3.5 h-3.5" />
                       </button>
-                      {/* BORRAR CON CONFIRMACIÓN */}
                       <button
                         onClick={() => removeExerciseWithConfirm(ex.id, ex.name)}
                         className="p-1 bg-neutral-950 hover:bg-red-950/60 text-neutral-500 hover:text-red-400 rounded-lg transition ml-1"
@@ -1766,16 +1893,16 @@ export default function ActiveWorkoutPage() {
                     </div>
                   </div>
 
-                  {/* CAMPO DE NOTA OPCIONAL POR EJERCICIO */}
+                  {/* NOTA DEL EJERCICIO */}
                   <div className="mb-2">
-                    <div className="flex items-center gap-1.5">
-                      <MessageSquare className="w-3 h-3 text-neutral-500" />
+                    <div className="flex items-center gap-1.5 bg-neutral-950/80 px-2 py-1 rounded-lg border border-neutral-800/60">
+                      <MessageSquare className="w-3 h-3 text-lime-400 shrink-0" />
                       <input
                         type="text"
-                        placeholder="+ Añadir nota (ej. biserie con laterales, máquina pesada...)"
+                        placeholder="+ Añadir nota (ej. biserie con laterales, molestia, máquina ocupada...)"
                         value={ex.note || ''}
                         onChange={(e) => updateExerciseNote(ex.id, e.target.value)}
-                        className="w-full bg-transparent text-[11px] text-neutral-400 focus:text-white placeholder-neutral-600 focus:outline-none"
+                        className="w-full bg-transparent text-[11px] text-neutral-300 focus:text-white placeholder-neutral-500 focus:outline-none"
                       />
                     </div>
                   </div>
@@ -1799,7 +1926,6 @@ export default function ActiveWorkoutPage() {
                             : 'bg-neutral-800/60 border border-neutral-700/60'
                         }`}
                       >
-                        {/* Selector de Tipo de Serie (Normal / DropSet / RestPause / Al Fallo) */}
                         <div className="col-span-2 flex flex-col justify-center">
                           <div className="flex items-center gap-1 font-bold text-xs text-neutral-300">
                             <button onClick={() => removeSetFromExercise(ex.id, set.id)} className="hover:text-red-400 transition">
@@ -1807,6 +1933,7 @@ export default function ActiveWorkoutPage() {
                             </button>
                             {set.isPr && <Trophy className="w-3 h-3 text-yellow-400 inline" />}
                           </div>
+                          {/* SELECTOR DE DROP SET / REST PAUSE / AL FALLO */}
                           <button
                             type="button"
                             onClick={() => cycleSetType(ex.id, set.id)}
@@ -1817,7 +1944,7 @@ export default function ActiveWorkoutPage() {
                                 ? 'bg-blue-500/20 text-blue-400'
                                 : set.setType === 'failure'
                                 ? 'bg-red-500/20 text-red-400'
-                                : 'text-neutral-500'
+                                : 'text-neutral-500 hover:text-neutral-300'
                             }`}
                           >
                             {set.setType === 'dropset'
@@ -1915,7 +2042,7 @@ export default function ActiveWorkoutPage() {
         </div>
       )}
 
-      {/* ================= 4. HISTORIAL ================= */}
+      {/* ================= 4. HISTORIAL (CON BORRAR, EDITAR Y DESPLEGABLE PROFESIONAL AGRUPADO) ================= */}
       {activeTab === 'history' && (
         <div className="space-y-4">
           <header className="border-b border-neutral-800 pb-4 mb-4">
@@ -1932,7 +2059,6 @@ export default function ActiveWorkoutPage() {
             <div className="space-y-3">
               {historyList.map((item) => {
                 const isExpanded = expandedWorkoutId === item.id
-                const sets = workoutSetsDetails[item.id] || []
 
                 return (
                   <div
@@ -1964,6 +2090,25 @@ export default function ActiveWorkoutPage() {
                           <span className="text-[10px] uppercase font-bold text-neutral-500 block">Volumen</span>
                           <span className="text-base font-extrabold font-mono text-lime-400">{item.total_volume_kg || 0} kg</span>
                         </div>
+
+                        {/* BOTÓN EDITAR SESIÓN */}
+                        <button
+                          onClick={(e) => openEditWorkoutModal(item, e)}
+                          className="p-1.5 bg-neutral-950 hover:bg-neutral-800 text-neutral-400 hover:text-white rounded-lg transition"
+                          title="Editar sesión y series"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+
+                        {/* BOTÓN BORRAR SESIÓN */}
+                        <button
+                          onClick={(e) => deleteWorkout(item.id, e)}
+                          className="p-1.5 bg-neutral-950 hover:bg-red-950/60 text-neutral-500 hover:text-red-400 rounded-lg transition"
+                          title="Eliminar sesión"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+
                         <ChevronRight
                           className={`w-4 h-4 text-neutral-400 transition-transform ${
                             isExpanded ? 'rotate-90 text-lime-400' : ''
@@ -1972,24 +2117,63 @@ export default function ActiveWorkoutPage() {
                       </div>
                     </div>
 
+                    {/* DESPLEGABLE PROFESIONAL AGRUPADO POR EJERCICIO */}
                     {isExpanded && (
-                      <div className="mt-3 pt-3 border-t border-neutral-800/80 space-y-2">
-                        {isLoadingSets && sets.length === 0 ? (
-                          <div className="py-2 text-center text-xs text-neutral-500">Cargando series...</div>
-                        ) : sets.length > 0 ? (
-                          sets.map((s: any, sIdx: number) => (
-                            <div
-                              key={s.id || sIdx}
-                              className="flex justify-between items-center bg-neutral-950/80 border border-neutral-800/60 px-3 py-1.5 rounded-xl text-xs"
-                            >
-                              <span className="text-neutral-300 font-semibold">Serie #{s.set_number}</span>
-                              <span className="font-mono text-lime-400 font-bold">
-                                {s.weight_kg} kg × {s.reps} reps (RIR {s.rir}) {s.is_pr && '⭐ PR'}
-                              </span>
+                      <div className="mt-4 pt-3.5 border-t border-neutral-800 space-y-3.5">
+                        {isLoadingSets && groupedWorkoutSets.length === 0 ? (
+                          <div className="py-2 text-center text-xs text-neutral-500 flex items-center justify-center gap-2">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-lime-400" /> Cargando desglose...
+                          </div>
+                        ) : groupedWorkoutSets.length > 0 ? (
+                          groupedWorkoutSets.map((grp, gIdx) => (
+                            <div key={gIdx} className="bg-neutral-950 p-3 rounded-2xl border border-neutral-800/80 space-y-2">
+                              <div className="flex items-center gap-2.5">
+                                {grp.exerciseInfo && (
+                                  <div className="w-8 h-9 rounded-lg bg-white p-0.5 shrink-0 overflow-hidden">
+                                    <AnatomicalImage
+                                      src={grp.exerciseInfo.anatomical_image_url}
+                                      alt={grp.exerciseName}
+                                      targetMuscle={grp.exerciseInfo.target_muscle}
+                                      className="w-full h-full object-contain"
+                                    />
+                                  </div>
+                                )}
+                                <div>
+                                  <h4 className="text-xs font-bold text-white">{grp.exerciseName}</h4>
+                                  {grp.exerciseInfo && (
+                                    <span className="text-[10px] text-lime-400 font-semibold">{grp.exerciseInfo.target_muscle}</span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* TABLA SERIE POR SERIE */}
+                              <div className="space-y-1">
+                                <div className="grid grid-cols-12 text-[9px] text-neutral-500 uppercase font-bold px-2 text-center">
+                                  <span className="col-span-3 text-left">Serie</span>
+                                  <span className="col-span-4">Carga</span>
+                                  <span className="col-span-3">Reps</span>
+                                  <span className="col-span-2 text-right">RIR</span>
+                                </div>
+
+                                {grp.sets.map((s: any, sIdx: number) => (
+                                  <div
+                                    key={s.id || sIdx}
+                                    className="grid grid-cols-12 items-center bg-neutral-900 px-2 py-1.5 rounded-lg text-xs font-mono text-center"
+                                  >
+                                    <span className="col-span-3 text-left text-neutral-300 font-sans font-bold flex items-center gap-1">
+                                      #{s.set_number || sIdx + 1}
+                                      {s.is_pr && <Trophy className="w-3 h-3 text-yellow-400 inline" />}
+                                    </span>
+                                    <span className="col-span-4 text-lime-400 font-bold">{s.weight_kg} kg</span>
+                                    <span className="col-span-3 text-white font-bold">{s.reps} reps</span>
+                                    <span className="col-span-2 text-right text-neutral-400">RIR {s.rir ?? '-'}</span>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                           ))
                         ) : (
-                          <div className="py-2 text-center text-xs text-neutral-500">No se encontraron series para esta sesión.</div>
+                          <div className="py-2 text-center text-xs text-neutral-500">No hay series registradas en esta sesión.</div>
                         )}
                       </div>
                     )}
@@ -2070,7 +2254,111 @@ export default function ActiveWorkoutPage() {
         </div>
       )}
 
-      {/* ================= MODAL: SUSTITUCIÓN DIRECTA DE EJERCICIO EN VIVO ================= */}
+      {/* ================= MODAL: EDITAR SESIÓN PASADA ================= */}
+      {editingWorkout && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-3xl p-5 shadow-2xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
+              <h3 className="text-sm font-extrabold text-white flex items-center gap-1.5">
+                <Pencil className="w-4 h-4 text-lime-400" /> Editar Sesión Pasada
+              </h3>
+              <button onClick={() => setEditingWorkout(null)} className="p-1 text-neutral-400">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="py-2 space-y-3 flex-1 overflow-y-auto pr-1">
+              <div>
+                <label className="text-[10px] font-bold text-neutral-400 block mb-1">Nombre de la Sesión</label>
+                <input
+                  type="text"
+                  value={editingWorkout.name}
+                  onChange={(e) => setEditingWorkout({ ...editingWorkout, name: e.target.value })}
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-lime-400"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-neutral-400 block mb-1.5">Modificar Cargas y Reps</label>
+                <div className="space-y-2">
+                  {editingWorkoutSets.map((s, idx) => {
+                    const exInfo = catalog.find((c) => c.id === s.exercise_id)
+                    return (
+                      <div key={s.id || idx} className="bg-neutral-950 p-2.5 rounded-xl border border-neutral-800/80 space-y-1">
+                        <div className="text-[11px] font-bold text-white truncate">
+                          #{s.set_number || idx + 1} • {exInfo?.name || s.exercise_id}
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div>
+                            <span className="text-[9px] text-neutral-500 block">Kg</span>
+                            <input
+                              type="number"
+                              value={s.weight_kg}
+                              onChange={(e) => {
+                                const val = Number(e.target.value)
+                                setEditingWorkoutSets((prev) =>
+                                  prev.map((item, i) => (i === idx ? { ...item, weight_kg: val } : item))
+                                )
+                              }}
+                              className="w-full bg-neutral-900 border border-neutral-700 rounded-lg py-1 text-center font-bold text-lime-400 text-xs focus:border-lime-400"
+                            />
+                          </div>
+                          <div>
+                            <span className="text-[9px] text-neutral-500 block">Reps</span>
+                            <input
+                              type="number"
+                              value={s.reps}
+                              onChange={(e) => {
+                                const val = Number(e.target.value)
+                                setEditingWorkoutSets((prev) =>
+                                  prev.map((item, i) => (i === idx ? { ...item, reps: val } : item))
+                                )
+                              }}
+                              className="w-full bg-neutral-900 border border-neutral-700 rounded-lg py-1 text-center font-bold text-white text-xs focus:border-lime-400"
+                            />
+                          </div>
+                          <div>
+                            <span className="text-[9px] text-neutral-500 block">RIR</span>
+                            <input
+                              type="number"
+                              value={s.rir}
+                              onChange={(e) => {
+                                const val = Number(e.target.value)
+                                setEditingWorkoutSets((prev) =>
+                                  prev.map((item, i) => (i === idx ? { ...item, rir: val } : item))
+                                )
+                              }}
+                              className="w-full bg-neutral-900 border border-neutral-700 rounded-lg py-1 text-center font-bold text-white text-xs focus:border-lime-400"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-neutral-800 flex gap-2">
+              <button
+                onClick={handleSaveWorkoutEdit}
+                disabled={isSavingHistoryEdit}
+                className="flex-1 py-2.5 bg-lime-400 hover:bg-lime-300 disabled:opacity-50 text-neutral-950 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5"
+              >
+                {isSavingHistoryEdit ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Guardar Cambios'}
+              </button>
+              <button
+                onClick={() => setEditingWorkout(null)}
+                className="px-4 py-2.5 bg-neutral-800 text-neutral-300 text-xs rounded-xl"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: SUSTITUIR EJERCICIO EN VIVO ================= */}
       {substitutingExerciseId && (
         <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-3xl p-5 shadow-2xl max-h-[85vh] flex flex-col">
@@ -2137,7 +2425,7 @@ export default function ActiveWorkoutPage() {
           <div className="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-3xl p-5 shadow-2xl max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
               <h3 className="text-sm font-extrabold text-white flex items-center gap-1.5">
-                <Dumbbell className="w-4 h-4 text-lime-400" /> Añadir Ejercicio a Sesión Activa
+                <Dumbbell className="w-4 h-4 text-lime-400" /> Añadir Ejercicio a Sesión
               </h3>
               <button onClick={() => setIsAddLiveExerciseOpen(false)} className="p-1 text-neutral-400">
                 <X className="w-4 h-4" />
