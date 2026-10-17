@@ -18,7 +18,7 @@ import {
   ArrowUp,
   ArrowDown,
   History,
-  Calendar,
+  Calendar as CalendarIcon,
   ChevronRight,
   ChevronLeft,
   BookOpen,
@@ -42,6 +42,8 @@ import {
   RotateCcw,
   Gauge,
   BarChart2,
+  TrendingUp,
+  Target,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { ANATOMICAL_EXERCISES, CatalogExercise } from '@/data/exercises'
@@ -343,7 +345,7 @@ export default function ActiveWorkoutPage() {
   const [interruptedWorkout, setInterruptedWorkout] = useState<ActiveWorkoutBackup | null>(null)
   const [isInterruptedModalOpen, setIsInterruptedModalOpen] = useState(false)
 
-  // Inicializado con valores estables para evitar el error de prerendering de Next.js
+  // Calendario y Navegación segura sin hidratación fallida
   const [selectedDateKey, setSelectedDateKey] = useState<string>('')
   const [currentWeekOffset, setCurrentWeekOffset] = useState<number>(0)
 
@@ -360,12 +362,13 @@ export default function ActiveWorkoutPage() {
   const [isSummaryOpen, setIsSummaryOpen] = useState(false)
   const historyLoadedRef = useRef(false)
 
+  // Calculadora 1RM bidireccional
   const [calcWeight, setCalcWeight] = useState<number>(80)
   const [calcReps, setCalcReps] = useState<number>(8)
+  const [targetRepsGoal, setTargetRepsGoal] = useState<number>(10)
 
   const [exercises, setExercises] = useState<WorkoutExercise[]>([])
 
-  // Fijar la fecha inicial en el cliente de forma segura
   useEffect(() => {
     setSelectedDateKey(new Date().toISOString().split('T')[0])
   }, [])
@@ -906,6 +909,15 @@ export default function ActiveWorkoutPage() {
     return calculate1RM(calcWeight, calcReps)
   }, [calcWeight, calcReps])
 
+  // CÁLCULO DE PESO A CARGAR SEGÚN REPETICIONES OBJETIVO
+  const targetWeightForReps = useMemo(() => {
+    if (estimated1RMCalc <= 0 || targetRepsGoal <= 0) return 0
+    if (targetRepsGoal === 1) return estimated1RMCalc
+    // Despeje de la fórmula Epley: Weight = 1RM / (1 + reps/30)
+    const target = estimated1RMCalc / (1 + targetRepsGoal / 30)
+    return Math.round(target * 2) / 2 // Redondeo al 0.5 kg más cercano
+  }, [estimated1RMCalc, targetRepsGoal])
+
   const toggleSetComplete = (exerciseId: string, setId: string) => {
     if (!isSessionRunning) setIsSessionRunning(true)
 
@@ -1371,7 +1383,7 @@ export default function ActiveWorkoutPage() {
     return { totalVolume, totalCompletedSets }
   }, [exercises])
 
-  // Determinación de la semana visible evaluada de forma segura
+  // Cálculo seguro de la tira de 7 días
   const weekDays = useMemo(() => {
     if (!selectedDateKey) return []
     const [y, m, d] = selectedDateKey.split('-').map(Number)
@@ -1428,101 +1440,107 @@ export default function ActiveWorkoutPage() {
     })
   }, [historyList, weekStart, weekEnd])
 
-  const weeklyAnalytics = useMemo(() => {
-    let weekVolume = 0
-    let totalEffectiveSets = 0
-    let totalRir = 0
-    let rirCount = 0
-    let failureSetsCount = 0
+  // ENTRENAMIENTOS ESPECÍFICOS DEL DÍA SELECCIONADO EN EL CALENDARIO
+  const selectedDayWorkouts = useMemo(() => {
+    if (!selectedDateKey) return []
+    return historyList.filter((w) => w.completed_at && w.completed_at.split('T')[0] === selectedDateKey)
+  }, [historyList, selectedDateKey])
 
-    const muscleSetsMap: Record<string, number> = {
-      Espalda: 0,
-      Pecho: 0,
-      Cuádriceps: 0,
-      Isquiosurales: 0,
-      Hombros: 0,
-      Brazos: 0,
-      Glúteos: 0,
+  // ANÁLISIS DE INTENSIDAD Y VOLUMEN POR GRUPO MUSCULAR (SEMÁFORO ESPECÍFICO)
+  const muscleIntensityAnalytics = useMemo(() => {
+    const muscleMap: Record<
+      string,
+      { totalSets: number; totalRir: number; rirCount: number; failureSets: number }
+    > = {
+      Espalda: { totalSets: 0, totalRir: 0, rirCount: 0, failureSets: 0 },
+      Pecho: { totalSets: 0, totalRir: 0, rirCount: 0, failureSets: 0 },
+      Cuádriceps: { totalSets: 0, totalRir: 0, rirCount: 0, failureSets: 0 },
+      Isquiosurales: { totalSets: 0, totalRir: 0, rirCount: 0, failureSets: 0 },
+      Hombros: { totalSets: 0, totalRir: 0, rirCount: 0, failureSets: 0 },
+      Brazos: { totalSets: 0, totalRir: 0, rirCount: 0, failureSets: 0 },
     }
+
+    let weekVolume = 0
+    let totalWeekSets = 0
 
     weekWorkouts.forEach((w) => {
       weekVolume += Number(w.total_volume_kg) || 0
       const sets = workoutSetsDetails[w.id] || []
 
       sets.forEach((s) => {
-        totalEffectiveSets++
-
-        if (typeof s.rir === 'number' && !isNaN(s.rir)) {
-          totalRir += s.rir
-          rirCount++
-          if (s.rir <= 0.5) failureSetsCount++
-        }
-
+        totalWeekSets++
         const ex =
           catalog.find((c: CatalogExercise) => c.id === s.exercise_id || c.name === s.exercise_id) ||
           ANATOMICAL_EXERCISES.find((c: CatalogExercise) => c.id === s.exercise_id)
 
         if (ex) {
           const muscle = ex.target_muscle
-          if (muscle.includes('Espalda')) muscleSetsMap.Espalda++
-          else if (muscle.includes('Pecho')) muscleSetsMap.Pecho++
-          else if (muscle.includes('Cuádriceps') || muscle.includes('Cuadriceps')) muscleSetsMap.Cuádriceps++
-          else if (muscle.includes('Isquio') || muscle.includes('Femoral')) muscleSetsMap.Isquiosurales++
-          else if (muscle.includes('Hombro')) muscleSetsMap.Hombros++
-          else if (muscle.includes('Bíceps') || muscle.includes('Tríceps') || muscle.includes('Brazo')) muscleSetsMap.Brazos++
-          else if (muscle.includes('Glúteo')) muscleSetsMap.Glúteos++
+          let key = ''
+          if (muscle.includes('Espalda')) key = 'Espalda'
+          else if (muscle.includes('Pecho')) key = 'Pecho'
+          else if (muscle.includes('Cuádriceps') || muscle.includes('Cuadriceps')) key = 'Cuádriceps'
+          else if (muscle.includes('Isquio') || muscle.includes('Femoral')) key = 'Isquiosurales'
+          else if (muscle.includes('Hombro')) key = 'Hombros'
+          else if (muscle.includes('Bíceps') || muscle.includes('Tríceps') || muscle.includes('Brazo')) key = 'Brazos'
+
+          if (key && muscleMap[key]) {
+            muscleMap[key].totalSets++
+            if (typeof s.rir === 'number' && !isNaN(s.rir)) {
+              muscleMap[key].totalRir += s.rir
+              muscleMap[key].rirCount++
+              if (s.rir <= 0.5) muscleMap[key].failureSets++
+            }
+          }
         }
       })
     })
 
-    const avgRir = rirCount > 0 ? (totalRir / rirCount).toFixed(1) : '1.4'
-    const numRir = parseFloat(avgRir)
-    const failurePct = totalEffectiveSets > 0 ? Math.round((failureSetsCount / totalEffectiveSets) * 100) : 0
+    // Construir diagnósticos por cada grupo muscular
+    const musclesList = Object.entries(muscleMap).map(([muscleName, data]) => {
+      const avgRir = data.rirCount > 0 ? (data.totalRir / data.rirCount).toFixed(1) : '-'
+      const numRir = parseFloat(avgRir)
 
-    let intensityStatus = {
-      level: 'ÓPTIMA (HIPERTROFIA)',
-      badgeClass: 'bg-lime-400/20 text-lime-400 border-lime-400/40',
-      advice: 'Excelente estímulo. Rango ideal de tensión mecánica con fatiga controlada. ¡Gran trabajo!',
-      isCritical: false,
-    }
+      let status = 'SIN ENTRENAR'
+      let badge = 'bg-neutral-800 text-neutral-400 border-neutral-700'
+      let text = 'Sin registros esta semana'
+      let isWarning = false
 
-    if (totalEffectiveSets === 0) {
-      intensityStatus = {
-        level: 'SIN REGISTROS',
-        badgeClass: 'bg-neutral-800 text-neutral-400 border-neutral-700',
-        advice: 'Completa sesiones esta semana para calcular el diagnóstico de intensidad.',
-        isCritical: false,
+      if (data.totalSets > 0) {
+        if (numRir < 0.6) {
+          status = 'AL FALLO / SOBRECARGA'
+          badge = 'bg-red-500/20 text-red-400 border-red-500/40'
+          text = 'Fatiga muy alta acumulada. Considera no llegar al fallo en cada serie.'
+          isWarning = true
+        } else if (numRir <= 1.0) {
+          status = 'ALTA EXIGENCIA'
+          badge = 'bg-orange-500/20 text-orange-400 border-orange-500/40'
+          text = 'Estímulo potente cerca del límite. Monitorea la recuperación muscular.'
+        } else if (numRir <= 2.2) {
+          status = 'RANGO ÓPTIMO'
+          badge = 'bg-lime-400/20 text-lime-400 border-lime-400/40'
+          text = 'Tensión mecánica ideal para hipertrofia con fatiga controlada.'
+        } else {
+          status = 'SUBMÁXIMO'
+          badge = 'bg-blue-500/20 text-blue-400 border-blue-500/40'
+          text = 'Intensidad ligera. Tienes margen para acercarte más al fallo (RIR 1-2).'
+        }
       }
-    } else if (numRir < 0.6) {
-      intensityStatus = {
-        level: 'CRÍTICA / RIESGO SOBRECARGA',
-        badgeClass: 'bg-red-500/20 text-red-400 border-red-500/40',
-        advice: 'Alerta: Alto riesgo de fatiga central y sobreentrenamiento. Evita el fallo en cada serie, deja 1-2 reps en reserva o programa una semana de descarga (deload).',
-        isCritical: true,
+
+      return {
+        muscleName,
+        sets: data.totalSets,
+        avgRir,
+        status,
+        badge,
+        text,
+        isWarning,
       }
-    } else if (numRir <= 1.0) {
-      intensityStatus = {
-        level: 'INTENSIDAD ALTA (MÁXIMA EXIGENCIA)',
-        badgeClass: 'bg-orange-500/20 text-orange-400 border-orange-500/40',
-        advice: 'Estímulo muy demandante rozando el fallo. Prioriza tu recuperación, sueño y nutrición entre sesiones.',
-        isCritical: false,
-      }
-    } else if (numRir > 2.2) {
-      intensityStatus = {
-        level: 'INTENSIDAD MODERADA / LIGERA',
-        badgeClass: 'bg-blue-500/20 text-blue-400 border-blue-500/40',
-        advice: 'Estímulo submáximo. Si buscas hipertrofia muscular óptima, acércate un poco más al fallo en las series principales (RIR 1-2).',
-        isCritical: false,
-      }
-    }
+    })
 
     return {
       weekVolume,
-      totalEffectiveSets,
-      avgRir,
-      failurePct,
-      intensityStatus,
-      muscleSetsMap,
+      totalWeekSets,
+      musclesList,
     }
   }, [weekWorkouts, workoutSetsDetails, catalog])
 
@@ -1773,9 +1791,47 @@ export default function ActiveWorkoutPage() {
                 )
               })}
             </div>
+
+            {/* VISTA DINÁMICA DEL DÍA SELECCIONADO EN EL CALENDARIO */}
+            <div className="pt-2 border-t border-neutral-800/80">
+              {selectedDayWorkouts.length > 0 ? (
+                <div className="space-y-2">
+                  <span className="text-[10px] uppercase font-bold text-neutral-400 block">
+                    Entrenamiento del {selectedDateKey}:
+                  </span>
+                  {selectedDayWorkouts.map((w) => (
+                    <div
+                      key={w.id}
+                      onClick={() => {
+                        setActiveTab('history')
+                        toggleWorkoutDetails(w.id)
+                      }}
+                      className="bg-neutral-950 p-2.5 rounded-2xl border border-lime-400/40 hover:border-lime-400 flex items-center justify-between cursor-pointer transition shadow-md"
+                    >
+                      <div>
+                        <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                          <Activity className="w-3.5 h-3.5 text-lime-400" />
+                          {w.name}
+                        </div>
+                        <span className="text-[10px] text-lime-400 font-mono font-bold block mt-0.5">
+                          Volumen: {w.total_volume_kg} kg
+                        </span>
+                      </div>
+                      <button className="px-2.5 py-1 bg-neutral-900 border border-neutral-700 text-xs font-bold text-neutral-200 rounded-xl flex items-center gap-1">
+                        Ver Detalles <ChevronRight className="w-3 h-3 text-lime-400" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-2 text-neutral-500 text-xs">
+                  Sin entrenamientos registrados el {selectedDateKey || 'este día'} (Descanso).
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* ================= BANNER DE ENTRENAMIENTO INTERRUMPIDO ================= */}
+          {/* BANNER DE ENTRENAMIENTO INTERRUMPIDO */}
           {interruptedWorkout && (
             <div className="bg-amber-500/10 border border-amber-500/40 rounded-2xl p-3.5 space-y-2.5 shadow-xl">
               <div className="flex items-start gap-2.5">
@@ -1833,192 +1889,47 @@ export default function ActiveWorkoutPage() {
             </div>
           )}
 
-          {/* ================= MÉTRICAS SEMANALES: VOLUMEN E INTENSIDAD ================= */}
-          <div className="space-y-3">
-            {/* 1. TARJETA DE VOLUMEN SEMANAL */}
-            <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-4 space-y-3.5 shadow-xl">
-              <div className="flex items-center justify-between border-b border-neutral-800/80 pb-2.5">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-lime-400/10 text-lime-400 flex items-center justify-center">
-                    <BarChart2 className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <span className="text-[10px] uppercase font-extrabold tracking-wider text-neutral-400 block">
-                      Volumen Semanal
-                    </span>
-                    <h3 className="text-sm font-extrabold text-white">Resumen de Carga y Músculos</h3>
-                  </div>
-                </div>
-                <span className="text-xs font-mono font-extrabold text-lime-400">
-                  {weekWorkouts.length} {weekWorkouts.length === 1 ? 'sesión' : 'sesiones'}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 bg-neutral-950 p-3 rounded-2xl border border-neutral-800">
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-neutral-400 block">Tonelaje Semanal</span>
-                  <span className="text-lg font-extrabold font-mono text-lime-400 block mt-0.5">
-                    {weeklyAnalytics.weekVolume.toLocaleString('es-ES')} <span className="text-xs text-neutral-400">kg</span>
-                  </span>
+          {/* ================= SEMÁFORO ESPECÍFICO DE INTENSIDAD POR GRUPO MUSCULAR ================= */}
+          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-4 space-y-3 shadow-xl">
+            <div className="flex items-center justify-between border-b border-neutral-800/80 pb-2.5">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-orange-500/10 text-orange-400 flex items-center justify-center">
+                  <Gauge className="w-4 h-4" />
                 </div>
                 <div>
-                  <span className="text-[10px] uppercase font-bold text-neutral-400 block">Series Efectivas</span>
-                  <span className="text-lg font-extrabold font-mono text-white block mt-0.5">
-                    {weeklyAnalytics.totalEffectiveSets} <span className="text-xs text-neutral-400">series</span>
+                  <span className="text-[10px] uppercase font-extrabold tracking-wider text-neutral-400 block">
+                    Semáforo de Intensidad por Músculo
                   </span>
+                  <h3 className="text-sm font-extrabold text-white">Sobrecarga y RIR Específico</h3>
                 </div>
-              </div>
-
-              <div className="space-y-2 pt-1">
-                <span className="text-[10px] uppercase font-extrabold tracking-wider text-neutral-400 block">
-                  Volumen por Grupo Muscular (Series Efectivas)
-                </span>
-
-                {[
-                  { name: 'Espalda', sets: weeklyAnalytics.muscleSetsMap.Espalda, target: 16 },
-                  { name: 'Pecho', sets: weeklyAnalytics.muscleSetsMap.Pecho, target: 14 },
-                  { name: 'Cuádriceps', sets: weeklyAnalytics.muscleSetsMap.Cuádriceps, target: 14 },
-                  { name: 'Hombros', sets: weeklyAnalytics.muscleSetsMap.Hombros, target: 12 },
-                  { name: 'Brazos', sets: weeklyAnalytics.muscleSetsMap.Brazos, target: 12 },
-                ].map((m) => {
-                  const pct = Math.min(100, Math.round((m.sets / m.target) * 100))
-                  const isMax = m.sets >= 20
-
-                  return (
-                    <div key={m.name} className="space-y-1">
-                      <div className="flex justify-between items-center text-[11px] font-mono">
-                        <span className="text-neutral-300 font-sans font-bold">{m.name}</span>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-white font-extrabold">{m.sets} series</span>
-                          <span
-                            className={`text-[9px] uppercase px-1.5 py-0.2 rounded font-extrabold ${
-                              isMax
-                                ? 'bg-red-500/20 text-red-400'
-                                : m.sets >= 10
-                                ? 'bg-lime-400/20 text-lime-400'
-                                : 'bg-neutral-800 text-neutral-400'
-                            }`}
-                          >
-                            {isMax ? 'MÁXIMO MRV' : m.sets >= 10 ? 'ÓPTIMO' : 'MANTENIMIENTO'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="w-full bg-neutral-950 h-2 rounded-full overflow-hidden border border-neutral-800">
-                        <div
-                          className={`h-full transition-all duration-500 ${
-                            isMax ? 'bg-red-500' : 'bg-lime-400'
-                          }`}
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                    </div>
-                  )
-                })}
               </div>
             </div>
 
-            {/* 2. TARJETA DE INTENSIDAD SEMANAL */}
-            <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-4 space-y-3 shadow-xl">
-              <div className="flex items-center justify-between border-b border-neutral-800/80 pb-2.5">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-orange-500/10 text-orange-400 flex items-center justify-center">
-                    <Gauge className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <span className="text-[10px] uppercase font-extrabold tracking-wider text-neutral-400 block">
-                      Intensidad Semanal
+            <div className="space-y-2.5">
+              {muscleIntensityAnalytics.musclesList.map((m) => (
+                <div key={m.muscleName} className="bg-neutral-950 p-2.5 rounded-2xl border border-neutral-800/80 space-y-1">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                      {m.muscleName}
+                      <span className="text-[10px] font-mono text-neutral-400">({m.sets} series)</span>
                     </span>
-                    <h3 className="text-sm font-extrabold text-white">Semáforo de Proximidad al Fallo</h3>
+                    <span className={`text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full border ${m.badge}`}>
+                      {m.status} {m.avgRir !== '-' ? `• RIR ${m.avgRir}` : ''}
+                    </span>
                   </div>
+                  <p className="text-[11px] text-neutral-400 leading-tight">{m.text}</p>
                 </div>
-              </div>
-
-              <div className="flex items-center justify-between bg-neutral-950 p-3 rounded-2xl border border-neutral-800">
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-neutral-400 block">RIR Promedio</span>
-                  <span className="text-2xl font-extrabold font-mono text-white block mt-0.5">
-                    RIR {weeklyAnalytics.avgRir}
-                  </span>
-                </div>
-
-                <div className="text-right">
-                  <span
-                    className={`inline-block text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full border ${weeklyAnalytics.intensityStatus.badgeClass}`}
-                  >
-                    {weeklyAnalytics.intensityStatus.level}
-                  </span>
-                  <span className="text-[10px] text-neutral-400 block mt-1 font-mono">
-                    {weeklyAnalytics.failurePct}% de series al fallo
-                  </span>
-                </div>
-              </div>
-
-              <div
-                className={`p-3 rounded-2xl text-xs leading-relaxed border flex items-start gap-2.5 ${
-                  weeklyAnalytics.intensityStatus.isCritical
-                    ? 'bg-red-950/40 border-red-800/80 text-red-300'
-                    : 'bg-lime-400/10 border-lime-400/30 text-neutral-300'
-                }`}
-              >
-                <div className="shrink-0 mt-0.5">
-                  {weeklyAnalytics.intensityStatus.isCritical ? (
-                    <AlertTriangle className="w-4 h-4 text-red-400" />
-                  ) : (
-                    <Sparkles className="w-4 h-4 text-lime-400" />
-                  )}
-                </div>
-                <div>
-                  <span className="font-extrabold text-white block mb-0.5">
-                    {weeklyAnalytics.intensityStatus.isCritical ? '⚠️ Alerta de Sobrecarga:' : '💡 Consejo de Sobrecarga:'}
-                  </span>
-                  {weeklyAnalytics.intensityStatus.advice}
-                </div>
-              </div>
+              ))}
             </div>
           </div>
 
-          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-extrabold text-white">¿Qué entrenamos hoy?</h2>
-                <p className="text-[11px] text-neutral-400">Accede a tus rutinas o inicia un entrenamiento</p>
-              </div>
-              <button
-                onClick={downloadRoutinePlan}
-                className="p-2 bg-neutral-950 border border-neutral-800 hover:border-lime-400/50 rounded-xl text-neutral-300 hover:text-lime-400 transition"
-                title="Descargar tablilla de la rutina actual en TXT"
-              >
-                <Download className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={() => setActiveTab('routines')}
-                className="flex-1 py-3 bg-lime-400 hover:bg-lime-300 text-neutral-950 font-extrabold text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-1.5"
-              >
-                <ClipboardList className="w-4 h-4" /> Ver Mis Rutinas
-              </button>
-              <button
-                onClick={() => {
-                  setWorkoutName('Sesión Libre')
-                  setIsSessionRunning(true)
-                  setActiveTab('workout')
-                }}
-                className="px-4 py-3 bg-neutral-950 border border-neutral-800 hover:border-neutral-700 text-neutral-300 font-bold text-xs rounded-xl transition"
-              >
-                Entreno Libre
-              </button>
-            </div>
-          </div>
-
-          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-4 space-y-3 shadow-lg">
+          {/* ================= CALCULADORA DE 1RM BIDIRECCIONAL ================= */}
+          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-4 space-y-3.5 shadow-lg">
             <div className="flex items-center justify-between border-b border-neutral-800 pb-2">
               <div className="flex items-center gap-1.5">
                 <Calculator className="w-4 h-4 text-lime-400" />
                 <h3 className="text-xs font-extrabold text-white uppercase tracking-wider">
-                  Calculadora de 1RM Estimado
+                  Calculadora 1RM y Peso según Reps
                 </h3>
               </div>
               <span className="text-[10px] text-neutral-400 font-mono">Fórmula Epley</span>
@@ -2026,7 +1937,7 @@ export default function ActiveWorkoutPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[10px] font-bold text-neutral-400 block mb-1">Peso (kg)</label>
+                <label className="text-[10px] font-bold text-neutral-400 block mb-1">Peso Levantado (kg)</label>
                 <input
                   type="number"
                   value={calcWeight}
@@ -2036,7 +1947,7 @@ export default function ActiveWorkoutPage() {
               </div>
 
               <div>
-                <label className="text-[10px] font-bold text-neutral-400 block mb-1">Repeticiones</label>
+                <label className="text-[10px] font-bold text-neutral-400 block mb-1">Reps Logradas</label>
                 <input
                   type="number"
                   min="1"
@@ -2048,7 +1959,7 @@ export default function ActiveWorkoutPage() {
               </div>
             </div>
 
-            <div className="bg-neutral-950 p-2.5 rounded-2xl border border-neutral-800/80 flex items-center justify-between">
+            <div className="bg-neutral-950 p-2.5 rounded-2xl border border-neutral-800 flex items-center justify-between">
               <div>
                 <span className="text-[10px] uppercase font-bold text-neutral-500 block">Tu 1RM Estimado</span>
                 <span className="text-xl font-extrabold font-mono text-lime-400">{estimated1RMCalc} kg</span>
@@ -2058,6 +1969,33 @@ export default function ActiveWorkoutPage() {
                 <div className="text-neutral-300">90%: <span className="text-white font-bold">{Math.round(estimated1RMCalc * 0.9)} kg</span></div>
                 <div className="text-neutral-400">80%: <span className="text-white font-bold">{Math.round(estimated1RMCalc * 0.8)} kg</span></div>
                 <div className="text-neutral-500">70%: <span className="text-white font-bold">{Math.round(estimated1RMCalc * 0.7)} kg</span></div>
+              </div>
+            </div>
+
+            {/* SECCIÓN BIDIRECCIONAL: ¿CUÁNTO PESO LEVANTAR CON X REPS? */}
+            <div className="bg-neutral-950/80 p-3 rounded-2xl border border-lime-400/30 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] uppercase font-extrabold text-lime-400 flex items-center gap-1">
+                  <Target className="w-3.5 h-3.5" /> Peso sugerido por Reps Objetivo:
+                </span>
+                <select
+                  value={targetRepsGoal}
+                  onChange={(e) => setTargetRepsGoal(Number(e.target.value))}
+                  className="bg-neutral-900 border border-neutral-700 text-white font-bold text-xs rounded-lg px-2 py-1 focus:border-lime-400"
+                >
+                  {[3, 5, 6, 8, 10, 12, 15, 20].map((num) => (
+                    <option key={num} value={num}>Para {num} reps</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-neutral-300">
+                  Para completar <span className="font-bold text-white">{targetRepsGoal} repeticiones</span> debes cargar:
+                </span>
+                <span className="text-lg font-mono font-extrabold text-lime-400 bg-lime-400/10 px-2.5 py-0.5 rounded-xl border border-lime-400/30">
+                  {targetWeightForReps} kg
+                </span>
               </div>
             </div>
           </div>
@@ -2559,7 +2497,7 @@ export default function ActiveWorkoutPage() {
                     <div className="flex justify-between items-center">
                       <div>
                         <div className="flex items-center gap-2 mb-1">
-                          <Calendar className="w-3.5 h-3.5 text-lime-400" />
+                          <CalendarIcon className="w-3.5 h-3.5 text-lime-400" />
                           <span className="text-xs text-neutral-400">
                             {new Date(item.completed_at).toLocaleDateString('es-ES', {
                               weekday: 'short',
