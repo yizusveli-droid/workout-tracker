@@ -274,7 +274,7 @@ const DEFAULT_5_DAY_PROGRAM: WorkoutProgram = {
       estimatedDuration: '55 min',
       items: [
         { exerciseId: 'ex-48', setsCount: 3, defaultWeight: 32.5, defaultReps: 10, defaultRir: 1, note: 'Scott Z', supersetGroup: 'A' },
-        { exerciseId: 'ex-58', setsCount: 3, defaultWeight: 25, defaultReps: 12, defaultRir: 1, note: 'Overhead polea', supersetGroup: 'A' },
+        { exerciseId: 'ex-58', setsCount: 2, defaultWeight: 25, defaultReps: 12, defaultRir: 1, note: 'Overhead', supersetGroup: 'A' },
         { exerciseId: 'ex-51', setsCount: 3, defaultWeight: 14, defaultReps: 10, defaultRir: 1, note: 'Curl 60°', supersetGroup: 'B' },
         { exerciseId: 'ex-61', setsCount: 3, defaultWeight: 30, defaultReps: 10, defaultRir: 1, note: 'Press francés', supersetGroup: 'B' },
         { exerciseId: 'ex-35', setsCount: 4, defaultWeight: 12, defaultReps: 15, defaultRir: 0, note: 'Laterales RIR 0' },
@@ -343,7 +343,8 @@ export default function ActiveWorkoutPage() {
   const [interruptedWorkout, setInterruptedWorkout] = useState<ActiveWorkoutBackup | null>(null)
   const [isInterruptedModalOpen, setIsInterruptedModalOpen] = useState(false)
 
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+  // Inicializado con valores estables para evitar el error de prerendering de Next.js
+  const [selectedDateKey, setSelectedDateKey] = useState<string>('')
   const [currentWeekOffset, setCurrentWeekOffset] = useState<number>(0)
 
   const [restSeconds, setRestSeconds] = useState<number | null>(null)
@@ -363,6 +364,11 @@ export default function ActiveWorkoutPage() {
   const [calcReps, setCalcReps] = useState<number>(8)
 
   const [exercises, setExercises] = useState<WorkoutExercise[]>([])
+
+  // Fijar la fecha inicial en el cliente de forma segura
+  useEffect(() => {
+    setSelectedDateKey(new Date().toISOString().split('T')[0])
+  }, [])
 
   useEffect(() => {
     try {
@@ -1365,8 +1371,11 @@ export default function ActiveWorkoutPage() {
     return { totalVolume, totalCompletedSets }
   }, [exercises])
 
+  // Determinación de la semana visible evaluada de forma segura
   const weekDays = useMemo(() => {
-    const base = new Date()
+    if (!selectedDateKey) return []
+    const [y, m, d] = selectedDateKey.split('-').map(Number)
+    const base = new Date(y, m - 1, d)
     base.setDate(base.getDate() + currentWeekOffset * 7)
 
     const dayOfWeek = base.getDay()
@@ -1377,21 +1386,24 @@ export default function ActiveWorkoutPage() {
     const dayNames = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
 
     for (let i = 0; i < 7; i++) {
-      const d = new Date(monday)
-      d.setDate(monday.getDate() + i)
+      const cur = new Date(monday)
+      cur.setDate(monday.getDate() + i)
+      const yr = cur.getFullYear()
+      const mo = String(cur.getMonth() + 1).padStart(2, '0')
+      const dt = String(cur.getDate()).padStart(2, '0')
       days.push({
         name: dayNames[i],
-        dayNumber: d.getDate(),
-        date: d,
-        dateKey: d.toISOString().split('T')[0],
+        dayNumber: cur.getDate(),
+        dateKey: `${yr}-${mo}-${dt}`,
       })
     }
     return days
-  }, [currentWeekOffset])
+  }, [selectedDateKey, currentWeekOffset])
 
   const currentMonthLabel = useMemo(() => {
     if (weekDays.length === 0) return ''
-    return weekDays[0].date.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }).toUpperCase()
+    const [y, m, d] = weekDays[0].dateKey.split('-').map(Number)
+    return new Date(y, m - 1, d).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }).toUpperCase()
   }, [weekDays])
 
   const workoutDatesSet = useMemo(() => {
@@ -1737,19 +1749,16 @@ export default function ActiveWorkoutPage() {
 
             <div className="grid grid-cols-7 gap-1.5 text-center">
               {weekDays.map((item) => {
-                const isSelected = selectedDate.toISOString().split('T')[0] === item.dateKey
+                const isSelected = selectedDateKey === item.dateKey
                 const hasWorkout = workoutDatesSet.has(item.dateKey)
-                const isToday = new Date().toISOString().split('T')[0] === item.dateKey
 
                 return (
                   <button
                     key={item.dateKey}
-                    onClick={() => setSelectedDate(item.date)}
+                    onClick={() => setSelectedDateKey(item.dateKey)}
                     className={`py-2 px-1 rounded-2xl flex flex-col items-center justify-center transition border ${
                       isSelected
                         ? 'bg-lime-400 text-neutral-950 border-lime-400 font-extrabold shadow-md'
-                        : isToday
-                        ? 'bg-neutral-950 border-lime-400/50 text-white'
                         : 'bg-neutral-950/70 border-neutral-800/80 text-neutral-400 hover:text-white'
                     }`}
                   >
