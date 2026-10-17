@@ -20,6 +20,7 @@ import {
   History,
   Calendar,
   ChevronRight,
+  ChevronLeft,
   BookOpen,
   Edit3,
   PlusCircle,
@@ -37,6 +38,10 @@ import {
   MessageSquare,
   Volume2,
   Link2,
+  AlertTriangle,
+  RotateCcw,
+  Gauge,
+  BarChart2,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { ANATOMICAL_EXERCISES, CatalogExercise } from '@/data/exercises'
@@ -101,7 +106,13 @@ interface WorkoutProgram {
   days: ProgramDay[]
 }
 
-// Reproductor de sonido nativo
+interface ActiveWorkoutBackup {
+  workoutName: string
+  sessionSeconds: number
+  exercises: WorkoutExercise[]
+  lastSavedTimestamp: number
+}
+
 function playBeepSound() {
   try {
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
@@ -134,6 +145,20 @@ function playBeepSound() {
   }
 }
 
+function MuscleIconPlaceholder({ targetMuscle }: { targetMuscle: string }) {
+  return (
+    <div className="w-full h-full bg-neutral-900 border border-neutral-800 rounded-xl flex flex-col items-center justify-center p-1.5 text-center select-none">
+      <div className="w-7 h-7 rounded-lg bg-lime-400/10 border border-lime-400/20 text-lime-400 flex items-center justify-center mb-1">
+        <Dumbbell className="w-3.5 h-3.5" />
+      </div>
+      <span className="text-[9px] font-extrabold uppercase tracking-tight text-lime-400 truncate max-w-full">
+        {targetMuscle || 'General'}
+      </span>
+      <span className="text-[7px] text-neutral-500 font-mono">Lámina 2D</span>
+    </div>
+  )
+}
+
 function AnatomicalImage({
   src,
   alt,
@@ -145,45 +170,22 @@ function AnatomicalImage({
   targetMuscle: string
   className?: string
 }) {
-  const [imgSrc, setImgSrc] = useState(src)
-  const [fallbackStage, setFallbackStage] = useState(0)
+  const [hasError, setHasError] = useState(false)
 
   useEffect(() => {
-    setImgSrc(src)
-    setFallbackStage(0)
+    setHasError(false)
   }, [src])
 
-  const handleError = () => {
-    if (fallbackStage === 0) {
-      setImgSrc('https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Bench-Press.gif')
-      setFallbackStage(1)
-      return
-    }
-    setFallbackStage(2)
-  }
-
-  if (fallbackStage === 2) {
-    return (
-      <svg viewBox="0 0 100 120" className="w-full h-full bg-white p-1">
-        <circle cx="50" cy="20" r="10" fill="#9ca3af" />
-        <path
-          d="M35 34 C35 31, 65 31, 65 34 L70 68 L62 68 L60 45 L58 72 L42 72 L40 45 L38 68 L30 68 Z"
-          fill="#d1d5db"
-          stroke="#6b7280"
-          strokeWidth="1.5"
-        />
-        <ellipse cx="43" cy="46" rx="7" ry="9" fill="#ef4444" opacity="0.9" />
-        <ellipse cx="57" cy="46" rx="7" ry="9" fill="#ef4444" opacity="0.9" />
-      </svg>
-    )
+  if (!src || src.trim() === '' || hasError) {
+    return <MuscleIconPlaceholder targetMuscle={targetMuscle} />
   }
 
   return (
     <img
-      src={imgSrc}
+      src={src}
       alt={alt}
       referrerPolicy="no-referrer"
-      onError={handleError}
+      onError={() => setHasError(true)}
       className={className}
     />
   )
@@ -290,17 +292,14 @@ export default function ActiveWorkoutPage() {
   const [authError, setAuthError] = useState('')
   const [authSubmitting, setAuthSubmitting] = useState(false)
 
-  // 5 Pestañas
   const [activeTab, setActiveTab] = useState<'home' | 'workout' | 'routines' | 'history' | 'library'>('home')
   const [bodyWeightKg, setBodyWeightKg] = useState<number>(80)
 
-  // Catálogo extendible
   const [catalog, setCatalog] = useState<CatalogExercise[]>(ANATOMICAL_EXERCISES)
   const [libraryMuscleFilter, setLibraryMuscleFilter] = useState('Todos')
   const [librarySearchQuery, setLibrarySearchQuery] = useState('')
   const [selectedPreview, setSelectedPreview] = useState<CatalogExercise | null>(null)
 
-  // Modal para agregar nuevo ejercicio a la biblioteca
   const [isNewExerciseModalOpen, setIsNewExerciseModalOpen] = useState(false)
   const [newExName, setNewExName] = useState('')
   const [newExMuscle, setNewExMuscle] = useState('Pecho')
@@ -308,12 +307,10 @@ export default function ActiveWorkoutPage() {
   const [newExEquipment, setNewExEquipment] = useState('Barra')
   const [newExUrl, setNewExUrl] = useState('')
 
-  // Programas y Días
   const [programsList, setProgramsList] = useState<WorkoutProgram[]>([DEFAULT_5_DAY_PROGRAM])
   const [selectedProgramId, setSelectedProgramId] = useState<string>(DEFAULT_5_DAY_PROGRAM.id)
   const [activeDayIndex, setActiveDayIndex] = useState<number>(0)
 
-  // Modales Programas y Días
   const [isCreatingProgram, setIsCreatingProgram] = useState(false)
   const [newProgramName, setNewProgramName] = useState('')
   const [newProgramDesc, setNewProgramDesc] = useState('')
@@ -327,31 +324,31 @@ export default function ActiveWorkoutPage() {
   const [modalMuscleFilter, setModalMuscleFilter] = useState('Todos')
   const [modalSearchQuery, setModalSearchQuery] = useState('')
 
-  // Modal Agregar ejercicio al entrenamiento en vivo
   const [isAddLiveExerciseOpen, setIsAddLiveExerciseOpen] = useState(false)
   const [liveSearchQuery, setLiveSearchQuery] = useState('')
   const [liveMuscleFilter, setLiveMuscleFilter] = useState('Todos')
 
-  // Modal Sustitución directa de ejercicio en vivo
   const [substitutingExerciseId, setSubstitutingExerciseId] = useState<string | null>(null)
 
-  // Modal Editar Sesión Pasada del Historial (con selector para agregar ejercicios)
   const [editingWorkout, setEditingWorkout] = useState<PastWorkout | null>(null)
-  const [editingWorkoutSets, setEditingWorkoutSets] = useState<any[]>([])
+  const [editingGroupedExercises, setEditingGroupedExercises] = useState<{ exerciseId: string; exerciseName: string; sets: any[] }[]>([])
   const [isSavingHistoryEdit, setIsSavingHistoryEdit] = useState(false)
   const [isAddingExerciseToHistory, setIsAddingExerciseToHistory] = useState(false)
   const [historySearchQuery, setHistorySearchQuery] = useState('')
 
-  // Sesión y Cronómetro
   const [workoutName, setWorkoutName] = useState('Torso A (Fuerza e Hipertrofia)')
   const [sessionSeconds, setSessionSeconds] = useState(0)
   const [isSessionRunning, setIsSessionRunning] = useState(false)
 
-  // Descanso
+  const [interruptedWorkout, setInterruptedWorkout] = useState<ActiveWorkoutBackup | null>(null)
+  const [isInterruptedModalOpen, setIsInterruptedModalOpen] = useState(false)
+
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+  const [currentWeekOffset, setCurrentWeekOffset] = useState<number>(0)
+
   const [restSeconds, setRestSeconds] = useState<number | null>(null)
   const [isRestActive, setIsRestActive] = useState(false)
 
-  // Supabase persistencia e Historial
   const [isSaving, setIsSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [historyList, setHistoryList] = useState<PastWorkout[]>([])
@@ -362,14 +359,11 @@ export default function ActiveWorkoutPage() {
   const [isSummaryOpen, setIsSummaryOpen] = useState(false)
   const historyLoadedRef = useRef(false)
 
-  // Calculadora 1RM interactiva
   const [calcWeight, setCalcWeight] = useState<number>(80)
   const [calcReps, setCalcReps] = useState<number>(8)
 
-  // Ejercicios activos
   const [exercises, setExercises] = useState<WorkoutExercise[]>([])
 
-  // Cargar ejercicios de localStorage
   useEffect(() => {
     try {
       const customSaved = localStorage.getItem('user_custom_library_exercises')
@@ -386,7 +380,6 @@ export default function ActiveWorkoutPage() {
     }
   }, [])
 
-  // Inicializar ejercicios de Día 1
   useEffect(() => {
     if (exercises.length === 0 && DEFAULT_5_DAY_PROGRAM.days[0]) {
       const d1 = DEFAULT_5_DAY_PROGRAM.days[0]
@@ -409,7 +402,7 @@ export default function ActiveWorkoutPage() {
           name: catEx.name,
           targetMuscle: catEx.target_muscle,
           secondaryMuscle: catEx.secondary_muscle,
-          anatomicalImageUrl: catEx.anatomical_image_url,
+          anatomicalImageUrl: catEx.anatomical_image_url || '',
           previousBest: `${item.defaultWeight} kg × ${item.defaultReps}`,
           note: item.note || '',
           supersetGroup: item.supersetGroup || '',
@@ -421,7 +414,55 @@ export default function ActiveWorkoutPage() {
     }
   }, [catalog, exercises.length])
 
-  // Carga de rutinas de localStorage
+  useEffect(() => {
+    try {
+      const backupRaw = localStorage.getItem('active_workout_backup')
+      if (backupRaw) {
+        const parsed: ActiveWorkoutBackup = JSON.parse(backupRaw)
+        const hasCompletedSets = parsed.exercises?.some((ex) => ex.sets.some((s) => s.isCompleted))
+        if (parsed.sessionSeconds > 0 || hasCompletedSets) {
+          setInterruptedWorkout(parsed)
+          setIsInterruptedModalOpen(true)
+        }
+      }
+    } catch (e) {
+      console.warn('Error al verificar sesión respaldada:', e)
+    }
+  }, [])
+
+  useEffect(() => {
+    const hasAnyCompleted = exercises.some((ex) => ex.sets.some((s) => s.isCompleted))
+    if (isSessionRunning || hasAnyCompleted) {
+      const backupData: ActiveWorkoutBackup = {
+        workoutName,
+        sessionSeconds,
+        exercises,
+        lastSavedTimestamp: Date.now(),
+      }
+      try {
+        localStorage.setItem('active_workout_backup', JSON.stringify(backupData))
+      } catch (e) {
+        console.warn('Error guardando respaldo de sesión en tiempo real:', e)
+      }
+    }
+  }, [exercises, sessionSeconds, workoutName, isSessionRunning])
+
+  const handleResumeWorkout = () => {
+    if (!interruptedWorkout) return
+    setWorkoutName(interruptedWorkout.workoutName || 'Sesión en Vivo')
+    setSessionSeconds(interruptedWorkout.sessionSeconds || 0)
+    setExercises(interruptedWorkout.exercises || [])
+    setIsSessionRunning(true)
+    setIsInterruptedModalOpen(false)
+    setActiveTab('workout')
+  }
+
+  const handleDiscardBackup = () => {
+    localStorage.removeItem('active_workout_backup')
+    setInterruptedWorkout(null)
+    setIsInterruptedModalOpen(false)
+  }
+
   useEffect(() => {
     try {
       const saved =
@@ -471,7 +512,6 @@ export default function ActiveWorkoutPage() {
     }
   }
 
-  // Auth Supabase
   useEffect(() => {
     const supabase = createClient()
     if (!supabase) {
@@ -547,11 +587,28 @@ export default function ActiveWorkoutPage() {
         .select('*')
         .eq('user_id', user.id)
         .order('completed_at', { ascending: false })
-        .limit(30)
+        .limit(50)
 
       if (data && !error) {
         setHistoryList(data)
         historyLoadedRef.current = true
+
+        const workoutIds = data.map((w: any) => w.id)
+        if (workoutIds.length > 0) {
+          const { data: allSets } = await supabase
+            .from('workout_sets')
+            .select('*')
+            .in('workout_id', workoutIds)
+
+          if (allSets) {
+            const mappedSets: Record<string, any[]> = {}
+            allSets.forEach((s: any) => {
+              if (!mappedSets[s.workout_id]) mappedSets[s.workout_id] = []
+              mappedSets[s.workout_id].push(s)
+            })
+            setWorkoutSetsDetails((prev) => ({ ...prev, ...mappedSets }))
+          }
+        }
       }
     } catch (err) {
       console.warn('Aviso cargando historial:', err)
@@ -561,12 +618,11 @@ export default function ActiveWorkoutPage() {
   }
 
   useEffect(() => {
-    if (user && activeTab === 'history') {
+    if (user) {
       loadHistory()
     }
-  }, [activeTab, user])
+  }, [user])
 
-  // Desplegar detalles de series (ordenando por set_number)
   const toggleWorkoutDetails = async (workoutId: string) => {
     if (expandedWorkoutId === workoutId) {
       setExpandedWorkoutId(null)
@@ -605,7 +661,6 @@ export default function ActiveWorkoutPage() {
     }
   }
 
-  // Eliminar sesión del historial
   const deleteWorkout = async (workoutId: string, e: React.MouseEvent) => {
     e.stopPropagation()
     if (!confirm('¿Estás seguro de que deseas eliminar esta sesión del historial?')) return
@@ -624,7 +679,6 @@ export default function ActiveWorkoutPage() {
     }
   }
 
-  // Abrir editor de sesión pasada
   const openEditWorkoutModal = async (workout: PastWorkout, e: React.MouseEvent) => {
     e.stopPropagation()
     setEditingWorkout(workout)
@@ -647,38 +701,111 @@ export default function ActiveWorkoutPage() {
         console.warn('Error cargando series para editar:', err)
       }
     }
-    setEditingWorkoutSets(JSON.parse(JSON.stringify(sets || [])))
+
+    const rawList = sets || []
+    const groups: { exerciseId: string; exerciseName: string; sets: any[] }[] = []
+    rawList.forEach((s) => {
+      const exInfo =
+        catalog.find((c: CatalogExercise) => c.id === s.exercise_id || c.name === s.exercise_id) ||
+        ANATOMICAL_EXERCISES.find((c: CatalogExercise) => c.id === s.exercise_id)
+      const name = exInfo ? exInfo.name : s.exercise_id || 'Ejercicio Registrado'
+
+      let grp = groups.find((g) => g.exerciseId === s.exercise_id)
+      if (!grp) {
+        grp = { exerciseId: s.exercise_id, exerciseName: name, sets: [] }
+        groups.push(grp)
+      }
+      grp.sets.push({ ...s })
+    })
+
+    setEditingGroupedExercises(groups)
   }
 
-  // Agregar ejercicio nuevo a la sesión que se está editando
+  const moveHistoryExercise = (index: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1
+    if (targetIndex < 0 || targetIndex >= editingGroupedExercises.length) return
+    const reordered = [...editingGroupedExercises]
+    const temp = reordered[index]
+    reordered[index] = reordered[targetIndex]
+    reordered[targetIndex] = temp
+    setEditingGroupedExercises(reordered)
+  }
+
+  const removeHistoryExerciseGroup = (index: number) => {
+    setEditingGroupedExercises((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const addSetToHistoryGroup = (groupIndex: number) => {
+    setEditingGroupedExercises((prev) =>
+      prev.map((grp, idx) => {
+        if (idx !== groupIndex) return grp
+        const lastSet = grp.sets[grp.sets.length - 1]
+        const newSet = {
+          id: `new-${Date.now()}-${grp.sets.length + 1}`,
+          workout_id: editingWorkout?.id,
+          exercise_id: grp.exerciseId,
+          set_number: grp.sets.length + 1,
+          weight_kg: lastSet ? lastSet.weight_kg : 40,
+          reps: lastSet ? lastSet.reps : 10,
+          rir: 1,
+          is_pr: false,
+        }
+        return { ...grp, sets: [...grp.sets, newSet] }
+      })
+    )
+  }
+
+  const removeSetFromHistoryGroup = (groupIndex: number, setIndex: number) => {
+    setEditingGroupedExercises((prev) =>
+      prev.map((grp, idx) => {
+        if (idx !== groupIndex) return grp
+        const filtered = grp.sets
+          .filter((_, sI) => sI !== setIndex)
+          .map((s, newIdx) => ({ ...s, set_number: newIdx + 1 }))
+        return { ...grp, sets: filtered }
+      })
+    )
+  }
+
+  const updateHistorySetValue = (
+    groupIndex: number,
+    setIndex: number,
+    field: 'weight_kg' | 'reps' | 'rir',
+    val: number
+  ) => {
+    setEditingGroupedExercises((prev) =>
+      prev.map((grp, gI) => {
+        if (gI !== groupIndex) return grp
+        return {
+          ...grp,
+          sets: grp.sets.map((s, sI) => (sI === setIndex ? { ...s, [field]: val } : s)),
+        }
+      })
+    )
+  }
+
   const handleAddExerciseToHistorySession = (catEx: CatalogExercise) => {
     if (!editingWorkout) return
-    const newSetsForEx = [1, 2, 3].map((num) => ({
-      id: `new-${Date.now()}-${num}`,
-      workout_id: editingWorkout.id,
-      exercise_id: catEx.id,
-      set_number: num,
-      weight_kg: 30,
-      reps: 10,
-      rir: 1,
-      is_pr: false,
-    }))
-    setEditingWorkoutSets((prev) => [...prev, ...newSetsForEx])
+    const newGroup = {
+      exerciseId: catEx.id,
+      exerciseName: catEx.name,
+      sets: [
+        { id: `new-${Date.now()}-1`, workout_id: editingWorkout.id, exercise_id: catEx.id, set_number: 1, weight_kg: 30, reps: 10, rir: 2, is_pr: false },
+        { id: `new-${Date.now()}-2`, workout_id: editingWorkout.id, exercise_id: catEx.id, set_number: 2, weight_kg: 30, reps: 10, rir: 1, is_pr: false },
+        { id: `new-${Date.now()}-3`, workout_id: editingWorkout.id, exercise_id: catEx.id, set_number: 3, weight_kg: 30, reps: 10, rir: 1, is_pr: false },
+      ],
+    }
+    setEditingGroupedExercises((prev) => [...prev, newGroup])
     setIsAddingExerciseToHistory(false)
   }
 
-  // Eliminar una serie específica dentro del editor de sesión
-  const handleRemoveSetFromHistory = (index: number) => {
-    setEditingWorkoutSets((prev) => prev.filter((_, i) => i !== index))
-  }
-
-  // Guardar edición de sesión pasada
   const handleSaveWorkoutEdit = async () => {
     if (!editingWorkout) return
     setIsSavingHistoryEdit(true)
 
     try {
-      const totalVolume = editingWorkoutSets.reduce(
+      const flattenedSets = editingGroupedExercises.flatMap((grp) => grp.sets)
+      const totalVolume = flattenedSets.reduce(
         (acc, s) => acc + (Number(s.weight_kg) || 0) * (Number(s.reps) || 0),
         0
       )
@@ -693,10 +820,9 @@ export default function ActiveWorkoutPage() {
           })
           .eq('id', editingWorkout.id)
 
-        // Limpiar series anteriores y reinsertar conjunto actualizado
         await supabase.from('workout_sets').delete().eq('workout_id', editingWorkout.id)
 
-        const setsToInsert = editingWorkoutSets.map((s, idx) => ({
+        const setsToInsert = flattenedSets.map((s, idx) => ({
           workout_id: editingWorkout.id,
           exercise_id: s.exercise_id,
           set_number: s.set_number || idx + 1,
@@ -720,9 +846,9 @@ export default function ActiveWorkoutPage() {
       )
       setWorkoutSetsDetails((prev) => ({
         ...prev,
-        [editingWorkout.id]: editingWorkoutSets,
+        [editingWorkout.id]: flattenedSets,
       }))
-      localStorage.setItem(`workout_sets_${editingWorkout.id}`, JSON.stringify(editingWorkoutSets))
+      localStorage.setItem(`workout_sets_${editingWorkout.id}`, JSON.stringify(flattenedSets))
 
       setEditingWorkout(null)
     } catch (err) {
@@ -733,7 +859,6 @@ export default function ActiveWorkoutPage() {
     }
   }
 
-  // Cronómetro de sesión
   useEffect(() => {
     let interval: NodeJS.Timeout
     if (isSessionRunning) {
@@ -742,7 +867,6 @@ export default function ActiveWorkoutPage() {
     return () => clearInterval(interval)
   }, [isSessionRunning])
 
-  // Temporizador de descanso con pitido final
   useEffect(() => {
     let interval: NodeJS.Timeout
     if (isRestActive && restSeconds !== null && restSeconds > 0) {
@@ -776,7 +900,6 @@ export default function ActiveWorkoutPage() {
     return calculate1RM(calcWeight, calcReps)
   }, [calcWeight, calcReps])
 
-  // LÓGICA DE BISERIE: El descanso SOLO salta cuando se completan TODAS las series del grupo (las 6 de 6)
   const toggleSetComplete = (exerciseId: string, setId: string) => {
     if (!isSessionRunning) setIsSessionRunning(true)
 
@@ -789,14 +912,11 @@ export default function ActiveWorkoutPage() {
       let shouldTriggerRest = false
 
       if (!currentSuperset) {
-        // En ejercicio normal: cada serie completada activa descanso
         shouldTriggerRest = willBeCompleted
       } else {
-        // En Biserie: obtener todos los ejercicios con esa misma letra (ej: 'A')
         const groupExercises = prev.filter((e) => e.supersetGroup === currentSuperset)
         const totalSetsInGroup = groupExercises.reduce((acc, e) => acc + e.sets.length, 0)
 
-        // Calcular cuántas series quedarán completadas tras este check
         const completedSetsCount = groupExercises.reduce((acc, e) => {
           return (
             acc +
@@ -804,7 +924,6 @@ export default function ActiveWorkoutPage() {
           )
         }, 0)
 
-        // SOLO dispara el cronómetro al completar las 6 series del bloque completo
         if (willBeCompleted && completedSetsCount === totalSetsInGroup) {
           shouldTriggerRest = true
         }
@@ -951,7 +1070,7 @@ export default function ActiveWorkoutPage() {
           name: replacementEx.name,
           targetMuscle: replacementEx.target_muscle,
           secondaryMuscle: replacementEx.secondary_muscle,
-          anatomicalImageUrl: replacementEx.anatomical_image_url,
+          anatomicalImageUrl: replacementEx.anatomical_image_url || '',
           note: ex.note ? `${ex.note} (Sustituido)` : 'Sustituido en sesión',
         }
       })
@@ -966,7 +1085,7 @@ export default function ActiveWorkoutPage() {
       name: catEx.name,
       targetMuscle: catEx.target_muscle,
       secondaryMuscle: catEx.secondary_muscle,
-      anatomicalImageUrl: catEx.anatomical_image_url,
+      anatomicalImageUrl: catEx.anatomical_image_url || '',
       previousBest: 'Registrar peso',
       note: 'Añadido extra en sesión',
       sets: [
@@ -991,9 +1110,7 @@ export default function ActiveWorkoutPage() {
       target_muscle: newExMuscle,
       secondary_muscle: newExSecondary.trim() || 'Sinergistas',
       equipment: newExEquipment,
-      anatomical_image_url:
-        newExUrl.trim() ||
-        'https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Bench-Press.gif',
+      anatomical_image_url: newExUrl.trim() || '',
     }
 
     const updated = [created, ...catalog]
@@ -1018,7 +1135,7 @@ export default function ActiveWorkoutPage() {
 
   const handleStartDay = (day: ProgramDay) => {
     const builtExercises: WorkoutExercise[] = day.items.map((item, idx) => {
-      const catEx = catalog.find((c) => c.id === item.exerciseId) || catalog[0]
+      const catEx = catalog.find((c: CatalogExercise) => c.id === item.exerciseId) || catalog[0]
 
       const sets: ExerciseSet[] = Array.from({ length: item.setsCount }).map((_, sIdx) => ({
         id: `set-${Date.now()}-${idx}-${sIdx}`,
@@ -1037,7 +1154,7 @@ export default function ActiveWorkoutPage() {
         name: catEx.name,
         targetMuscle: catEx.target_muscle,
         secondaryMuscle: catEx.secondary_muscle,
-        anatomicalImageUrl: catEx.anatomical_image_url,
+        anatomicalImageUrl: catEx.anatomical_image_url || '',
         previousBest: item.previousBest || `${item.defaultWeight} kg × ${item.defaultReps}`,
         note: item.note || '',
         supersetGroup: item.supersetGroup || '',
@@ -1064,7 +1181,7 @@ export default function ActiveWorkoutPage() {
       if (day.subtitle) textContent += `Objetivo: ${day.subtitle}\n`
       textContent += `-------------------------------------\n`
       day.items.forEach((item, iIdx) => {
-        const ex = catalog.find((c) => c.id === item.exerciseId)
+        const ex = catalog.find((c: CatalogExercise) => c.id === item.exerciseId)
         textContent += `${iIdx + 1}. ${ex?.name || item.exerciseId}\n`
         textContent += `   Series: ${item.setsCount} | Reps: ${item.defaultReps} | Peso: ${item.defaultWeight} kg\n`
         if (item.supersetGroup) textContent += `   SuperSerie: Grupo ${item.supersetGroup}\n`
@@ -1248,14 +1365,154 @@ export default function ActiveWorkoutPage() {
     return { totalVolume, totalCompletedSets }
   }, [exercises])
 
-  const historySummaryStats = useMemo(() => {
-    const totalSessions = historyList.length
-    const accumulatedVolume = historyList.reduce(
-      (acc, item) => acc + (Number(item.total_volume_kg) || 0),
-      0
-    )
-    return { totalSessions, accumulatedVolume }
+  const weekDays = useMemo(() => {
+    const base = new Date()
+    base.setDate(base.getDate() + currentWeekOffset * 7)
+
+    const dayOfWeek = base.getDay()
+    const diffToMonday = base.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1)
+    const monday = new Date(base.setDate(diffToMonday))
+
+    const days = []
+    const dayNames = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
+
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday)
+      d.setDate(monday.getDate() + i)
+      days.push({
+        name: dayNames[i],
+        dayNumber: d.getDate(),
+        date: d,
+        dateKey: d.toISOString().split('T')[0],
+      })
+    }
+    return days
+  }, [currentWeekOffset])
+
+  const currentMonthLabel = useMemo(() => {
+    if (weekDays.length === 0) return ''
+    return weekDays[0].date.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }).toUpperCase()
+  }, [weekDays])
+
+  const workoutDatesSet = useMemo(() => {
+    const s = new Set<string>()
+    historyList.forEach((w) => {
+      if (w.completed_at) {
+        s.add(w.completed_at.split('T')[0])
+      }
+    })
+    return s
   }, [historyList])
+
+  const weekStart = weekDays[0]?.dateKey
+  const weekEnd = weekDays[6]?.dateKey
+
+  const weekWorkouts = useMemo(() => {
+    if (!weekStart || !weekEnd) return []
+    return historyList.filter((w) => {
+      if (!w.completed_at) return false
+      const dKey = w.completed_at.split('T')[0]
+      return dKey >= weekStart && dKey <= weekEnd
+    })
+  }, [historyList, weekStart, weekEnd])
+
+  const weeklyAnalytics = useMemo(() => {
+    let weekVolume = 0
+    let totalEffectiveSets = 0
+    let totalRir = 0
+    let rirCount = 0
+    let failureSetsCount = 0
+
+    const muscleSetsMap: Record<string, number> = {
+      Espalda: 0,
+      Pecho: 0,
+      Cuádriceps: 0,
+      Isquiosurales: 0,
+      Hombros: 0,
+      Brazos: 0,
+      Glúteos: 0,
+    }
+
+    weekWorkouts.forEach((w) => {
+      weekVolume += Number(w.total_volume_kg) || 0
+      const sets = workoutSetsDetails[w.id] || []
+
+      sets.forEach((s) => {
+        totalEffectiveSets++
+
+        if (typeof s.rir === 'number' && !isNaN(s.rir)) {
+          totalRir += s.rir
+          rirCount++
+          if (s.rir <= 0.5) failureSetsCount++
+        }
+
+        const ex =
+          catalog.find((c: CatalogExercise) => c.id === s.exercise_id || c.name === s.exercise_id) ||
+          ANATOMICAL_EXERCISES.find((c: CatalogExercise) => c.id === s.exercise_id)
+
+        if (ex) {
+          const muscle = ex.target_muscle
+          if (muscle.includes('Espalda')) muscleSetsMap.Espalda++
+          else if (muscle.includes('Pecho')) muscleSetsMap.Pecho++
+          else if (muscle.includes('Cuádriceps') || muscle.includes('Cuadriceps')) muscleSetsMap.Cuádriceps++
+          else if (muscle.includes('Isquio') || muscle.includes('Femoral')) muscleSetsMap.Isquiosurales++
+          else if (muscle.includes('Hombro')) muscleSetsMap.Hombros++
+          else if (muscle.includes('Bíceps') || muscle.includes('Tríceps') || muscle.includes('Brazo')) muscleSetsMap.Brazos++
+          else if (muscle.includes('Glúteo')) muscleSetsMap.Glúteos++
+        }
+      })
+    })
+
+    const avgRir = rirCount > 0 ? (totalRir / rirCount).toFixed(1) : '1.4'
+    const numRir = parseFloat(avgRir)
+    const failurePct = totalEffectiveSets > 0 ? Math.round((failureSetsCount / totalEffectiveSets) * 100) : 0
+
+    let intensityStatus = {
+      level: 'ÓPTIMA (HIPERTROFIA)',
+      badgeClass: 'bg-lime-400/20 text-lime-400 border-lime-400/40',
+      advice: 'Excelente estímulo. Rango ideal de tensión mecánica con fatiga controlada. ¡Gran trabajo!',
+      isCritical: false,
+    }
+
+    if (totalEffectiveSets === 0) {
+      intensityStatus = {
+        level: 'SIN REGISTROS',
+        badgeClass: 'bg-neutral-800 text-neutral-400 border-neutral-700',
+        advice: 'Completa sesiones esta semana para calcular el diagnóstico de intensidad.',
+        isCritical: false,
+      }
+    } else if (numRir < 0.6) {
+      intensityStatus = {
+        level: 'CRÍTICA / RIESGO SOBRECARGA',
+        badgeClass: 'bg-red-500/20 text-red-400 border-red-500/40',
+        advice: 'Alerta: Alto riesgo de fatiga central y sobreentrenamiento. Evita el fallo en cada serie, deja 1-2 reps en reserva o programa una semana de descarga (deload).',
+        isCritical: true,
+      }
+    } else if (numRir <= 1.0) {
+      intensityStatus = {
+        level: 'INTENSIDAD ALTA (MÁXIMA EXIGENCIA)',
+        badgeClass: 'bg-orange-500/20 text-orange-400 border-orange-500/40',
+        advice: 'Estímulo muy demandante rozando el fallo. Prioriza tu recuperación, sueño y nutrición entre sesiones.',
+        isCritical: false,
+      }
+    } else if (numRir > 2.2) {
+      intensityStatus = {
+        level: 'INTENSIDAD MODERADA / LIGERA',
+        badgeClass: 'bg-blue-500/20 text-blue-400 border-blue-500/40',
+        advice: 'Estímulo submáximo. Si buscas hipertrofia muscular óptima, acércate un poco más al fallo en las series principales (RIR 1-2).',
+        isCritical: false,
+      }
+    }
+
+    return {
+      weekVolume,
+      totalEffectiveSets,
+      avgRir,
+      failurePct,
+      intensityStatus,
+      muscleSetsMap,
+    }
+  }, [weekWorkouts, workoutSetsDetails, catalog])
 
   const currentProgram = useMemo(() => {
     return programsList.find((p) => p.id === selectedProgramId) || programsList[0]
@@ -1267,7 +1524,7 @@ export default function ActiveWorkoutPage() {
   }, [currentProgram, activeDayIndex])
 
   const filteredModalExercises = useMemo(() => {
-    return catalog.filter((ex) => {
+    return catalog.filter((ex: CatalogExercise) => {
       const matchesSearch =
         ex.name.toLowerCase().includes(modalSearchQuery.toLowerCase()) ||
         ex.target_muscle.toLowerCase().includes(modalSearchQuery.toLowerCase())
@@ -1279,7 +1536,7 @@ export default function ActiveWorkoutPage() {
   }, [catalog, modalSearchQuery, modalMuscleFilter])
 
   const filteredLibraryExercises = useMemo(() => {
-    return catalog.filter((ex) => {
+    return catalog.filter((ex: CatalogExercise) => {
       const matchesSearch =
         ex.name.toLowerCase().includes(librarySearchQuery.toLowerCase()) ||
         ex.target_muscle.toLowerCase().includes(librarySearchQuery.toLowerCase())
@@ -1291,7 +1548,7 @@ export default function ActiveWorkoutPage() {
   }, [catalog, librarySearchQuery, libraryMuscleFilter])
 
   const filteredLiveExercises = useMemo(() => {
-    return catalog.filter((ex) => {
+    return catalog.filter((ex: CatalogExercise) => {
       const matchesSearch =
         ex.name.toLowerCase().includes(liveSearchQuery.toLowerCase()) ||
         ex.target_muscle.toLowerCase().includes(liveSearchQuery.toLowerCase())
@@ -1304,13 +1561,12 @@ export default function ActiveWorkoutPage() {
 
   const filteredHistoryExercises = useMemo(() => {
     return catalog.filter(
-      (ex) =>
+      (ex: CatalogExercise) =>
         ex.name.toLowerCase().includes(historySearchQuery.toLowerCase()) ||
         ex.target_muscle.toLowerCase().includes(historySearchQuery.toLowerCase())
     )
   }, [catalog, historySearchQuery])
 
-  // Desglose profesional agrupado por ejercicio en el historial
   const groupedWorkoutSets = useMemo(() => {
     if (!expandedWorkoutId || !workoutSetsDetails[expandedWorkoutId]) return []
     const rawSets = workoutSetsDetails[expandedWorkoutId]
@@ -1320,12 +1576,12 @@ export default function ActiveWorkoutPage() {
     rawSets.forEach((s) => {
       const exInfo =
         catalog.find(
-          (c) =>
+          (c: CatalogExercise) =>
             c.id === s.exercise_id ||
             c.name.toLowerCase() === (s.exercise_id || '').toLowerCase()
         ) ||
         ANATOMICAL_EXERCISES.find(
-          (c) =>
+          (c: CatalogExercise) =>
             c.id === s.exercise_id ||
             c.name.toLowerCase() === (s.exercise_id || '').toLowerCase()
         )
@@ -1393,6 +1649,9 @@ export default function ActiveWorkoutPage() {
         }
       }
 
+      localStorage.removeItem('active_workout_backup')
+      setInterruptedWorkout(null)
+
       setSaveSuccess(true)
       await loadHistory(true)
     } catch (err: any) {
@@ -1400,74 +1659,6 @@ export default function ActiveWorkoutPage() {
     } finally {
       setIsSaving(false)
     }
-  }
-
-  if (!user && !authLoading) {
-    return (
-      <main className="min-h-screen bg-neutral-950 text-white flex items-center justify-center p-4">
-        <div className="w-full max-w-sm bg-neutral-900 border border-neutral-800 rounded-3xl p-6 shadow-2xl">
-          <div className="w-12 h-12 bg-lime-400/10 border border-lime-400/20 text-lime-400 rounded-2xl flex items-center justify-center mx-auto mb-3">
-            <Flame className="w-6 h-6" />
-          </div>
-          <h2 className="text-xl font-extrabold text-center text-white">
-            {authIsRegister ? 'Crear Cuenta' : 'Acceso Personal'}
-          </h2>
-          <p className="text-xs text-center text-neutral-400 mt-1 mb-6">
-            Inicia sesión para gestionar tus rutinas y días divididos.
-          </p>
-
-          {authError && (
-            <div className="mb-4 bg-red-950/60 border border-red-800/80 p-2.5 rounded-xl text-xs text-red-300 text-center">
-              {authError}
-            </div>
-          )}
-
-          <form onSubmit={handleAuthSubmit} className="space-y-3.5">
-            <div>
-              <label className="text-[11px] font-bold text-neutral-400 block mb-1">Correo Electrónico</label>
-              <input
-                type="email"
-                required
-                value={authEmail}
-                onChange={(e) => setAuthEmail(e.target.value)}
-                placeholder="ejemplo@correo.com"
-                className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-lime-400"
-              />
-            </div>
-
-            <div>
-              <label className="text-[11px] font-bold text-neutral-400 block mb-1">Contraseña</label>
-              <input
-                type="password"
-                required
-                value={authPassword}
-                onChange={(e) => setAuthPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-lime-400"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={authSubmitting}
-              className="w-full py-3 bg-lime-400 hover:bg-lime-300 text-neutral-950 font-extrabold text-sm rounded-xl transition flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {authSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : authIsRegister ? 'Registrar y Entrar' : 'Iniciar Sesión'}
-            </button>
-          </form>
-
-          <button
-            onClick={() => {
-              setAuthIsRegister(!authIsRegister)
-              setAuthError('')
-            }}
-            className="w-full mt-4 text-center text-xs text-neutral-400 hover:text-white transition"
-          >
-            {authIsRegister ? '¿Ya tienes cuenta? Inicia sesión' : '¿Primera vez? Regístrate aquí'}
-          </button>
-        </div>
-      </main>
-    )
   }
 
   return (
@@ -1516,7 +1707,102 @@ export default function ActiveWorkoutPage() {
             </div>
           </header>
 
-          {(sessionSeconds > 0 || workoutStats.totalCompletedSets > 0) && (
+          {/* ================= CALENDARIO SEMANAL INTERACTIVO ================= */}
+          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-3.5 space-y-3 shadow-xl">
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => setCurrentWeekOffset((prev) => prev - 1)}
+                className="p-1.5 bg-neutral-950 border border-neutral-800 hover:border-lime-400 text-neutral-400 hover:text-white rounded-xl transition"
+                title="Semana anterior"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+
+              <div className="text-center">
+                <span className="text-[10px] uppercase font-mono tracking-wider font-extrabold text-neutral-400 block">
+                  {currentWeekOffset === 0 ? 'Semana Actual' : currentWeekOffset === -1 ? 'Semana Pasada' : `Hace ${Math.abs(currentWeekOffset)} semanas`}
+                </span>
+                <span className="text-xs font-extrabold text-lime-400">{currentMonthLabel}</span>
+              </div>
+
+              <button
+                onClick={() => setCurrentWeekOffset((prev) => Math.min(0, prev + 1))}
+                disabled={currentWeekOffset >= 0}
+                className="p-1.5 bg-neutral-950 border border-neutral-800 hover:border-lime-400 text-neutral-400 hover:text-white disabled:opacity-30 rounded-xl transition"
+                title="Semana siguiente"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-7 gap-1.5 text-center">
+              {weekDays.map((item) => {
+                const isSelected = selectedDate.toISOString().split('T')[0] === item.dateKey
+                const hasWorkout = workoutDatesSet.has(item.dateKey)
+                const isToday = new Date().toISOString().split('T')[0] === item.dateKey
+
+                return (
+                  <button
+                    key={item.dateKey}
+                    onClick={() => setSelectedDate(item.date)}
+                    className={`py-2 px-1 rounded-2xl flex flex-col items-center justify-center transition border ${
+                      isSelected
+                        ? 'bg-lime-400 text-neutral-950 border-lime-400 font-extrabold shadow-md'
+                        : isToday
+                        ? 'bg-neutral-950 border-lime-400/50 text-white'
+                        : 'bg-neutral-950/70 border-neutral-800/80 text-neutral-400 hover:text-white'
+                    }`}
+                  >
+                    <span className="text-[9px] uppercase font-bold opacity-80">{item.name}</span>
+                    <span className="text-sm font-extrabold font-mono mt-0.5">{item.dayNumber}</span>
+                    <div
+                      className={`w-1.5 h-1.5 rounded-full mt-1 ${
+                        hasWorkout ? (isSelected ? 'bg-neutral-950' : 'bg-lime-400') : 'bg-transparent'
+                      }`}
+                    />
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* ================= BANNER DE ENTRENAMIENTO INTERRUMPIDO ================= */}
+          {interruptedWorkout && (
+            <div className="bg-amber-500/10 border border-amber-500/40 rounded-2xl p-3.5 space-y-2.5 shadow-xl">
+              <div className="flex items-start gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-4 h-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="text-[10px] uppercase font-extrabold tracking-wider text-amber-400 block">
+                    Sesión no terminada
+                  </span>
+                  <h4 className="text-xs font-bold text-white truncate">{interruptedWorkout.workoutName}</h4>
+                  <p className="text-[11px] text-neutral-400 mt-0.5">
+                    Tiempo: {formatTime(interruptedWorkout.sessionSeconds)} • {interruptedWorkout.exercises?.reduce((acc, ex) => acc + ex.sets.filter(s => s.isCompleted).length, 0)} series listas
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={handleResumeWorkout}
+                  className="flex-1 py-2 bg-lime-400 hover:bg-lime-300 text-neutral-950 font-extrabold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-1.5"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" /> Reanudar Sesión
+                </button>
+                <button
+                  onClick={handleDiscardBackup}
+                  className="px-3 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-400 hover:text-red-400 text-xs font-bold rounded-xl transition"
+                >
+                  Descartar
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Banner sesión activa */}
+          {(!interruptedWorkout && (sessionSeconds > 0 || workoutStats.totalCompletedSets > 0)) && (
             <div
               onClick={() => setActiveTab('workout')}
               className="bg-lime-400/10 border border-lime-400/40 rounded-2xl p-3 flex items-center justify-between cursor-pointer hover:bg-lime-400/15 transition shadow-lg"
@@ -1538,23 +1824,148 @@ export default function ActiveWorkoutPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-3 gap-2.5">
-            <div className="bg-neutral-900 border border-neutral-800/90 rounded-2xl p-3">
-              <span className="text-[10px] uppercase font-bold text-neutral-400 block">Sesiones</span>
-              <span className="text-lg font-extrabold font-mono text-white mt-0.5 block">{historySummaryStats.totalSessions}</span>
-              <span className="text-[10px] text-lime-400 font-medium">Guardadas</span>
+          {/* ================= MÉTRICAS SEMANALES: VOLUMEN E INTENSIDAD ================= */}
+          <div className="space-y-3">
+            {/* 1. TARJETA DE VOLUMEN SEMANAL */}
+            <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-4 space-y-3.5 shadow-xl">
+              <div className="flex items-center justify-between border-b border-neutral-800/80 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-lime-400/10 text-lime-400 flex items-center justify-center">
+                    <BarChart2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-extrabold tracking-wider text-neutral-400 block">
+                      Volumen Semanal
+                    </span>
+                    <h3 className="text-sm font-extrabold text-white">Resumen de Carga y Músculos</h3>
+                  </div>
+                </div>
+                <span className="text-xs font-mono font-extrabold text-lime-400">
+                  {weekWorkouts.length} {weekWorkouts.length === 1 ? 'sesión' : 'sesiones'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 bg-neutral-950 p-3 rounded-2xl border border-neutral-800">
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-neutral-400 block">Tonelaje Semanal</span>
+                  <span className="text-lg font-extrabold font-mono text-lime-400 block mt-0.5">
+                    {weeklyAnalytics.weekVolume.toLocaleString('es-ES')} <span className="text-xs text-neutral-400">kg</span>
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-neutral-400 block">Series Efectivas</span>
+                  <span className="text-lg font-extrabold font-mono text-white block mt-0.5">
+                    {weeklyAnalytics.totalEffectiveSets} <span className="text-xs text-neutral-400">series</span>
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-1">
+                <span className="text-[10px] uppercase font-extrabold tracking-wider text-neutral-400 block">
+                  Volumen por Grupo Muscular (Series Efectivas)
+                </span>
+
+                {[
+                  { name: 'Espalda', sets: weeklyAnalytics.muscleSetsMap.Espalda, target: 16 },
+                  { name: 'Pecho', sets: weeklyAnalytics.muscleSetsMap.Pecho, target: 14 },
+                  { name: 'Cuádriceps', sets: weeklyAnalytics.muscleSetsMap.Cuádriceps, target: 14 },
+                  { name: 'Hombros', sets: weeklyAnalytics.muscleSetsMap.Hombros, target: 12 },
+                  { name: 'Brazos', sets: weeklyAnalytics.muscleSetsMap.Brazos, target: 12 },
+                ].map((m) => {
+                  const pct = Math.min(100, Math.round((m.sets / m.target) * 100))
+                  const isMax = m.sets >= 20
+
+                  return (
+                    <div key={m.name} className="space-y-1">
+                      <div className="flex justify-between items-center text-[11px] font-mono">
+                        <span className="text-neutral-300 font-sans font-bold">{m.name}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-white font-extrabold">{m.sets} series</span>
+                          <span
+                            className={`text-[9px] uppercase px-1.5 py-0.2 rounded font-extrabold ${
+                              isMax
+                                ? 'bg-red-500/20 text-red-400'
+                                : m.sets >= 10
+                                ? 'bg-lime-400/20 text-lime-400'
+                                : 'bg-neutral-800 text-neutral-400'
+                            }`}
+                          >
+                            {isMax ? 'MÁXIMO MRV' : m.sets >= 10 ? 'ÓPTIMO' : 'MANTENIMIENTO'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="w-full bg-neutral-950 h-2 rounded-full overflow-hidden border border-neutral-800">
+                        <div
+                          className={`h-full transition-all duration-500 ${
+                            isMax ? 'bg-red-500' : 'bg-lime-400'
+                          }`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
 
-            <div className="bg-neutral-900 border border-neutral-800/90 rounded-2xl p-3">
-              <span className="text-[10px] uppercase font-bold text-neutral-400 block">Tonelaje</span>
-              <span className="text-lg font-extrabold font-mono text-lime-400 mt-0.5 block">{historySummaryStats.accumulatedVolume} kg</span>
-              <span className="text-[10px] text-neutral-400 font-medium">Histórico</span>
-            </div>
+            {/* 2. TARJETA DE INTENSIDAD SEMANAL */}
+            <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-4 space-y-3 shadow-xl">
+              <div className="flex items-center justify-between border-b border-neutral-800/80 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-orange-500/10 text-orange-400 flex items-center justify-center">
+                    <Gauge className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-extrabold tracking-wider text-neutral-400 block">
+                      Intensidad Semanal
+                    </span>
+                    <h3 className="text-sm font-extrabold text-white">Semáforo de Proximidad al Fallo</h3>
+                  </div>
+                </div>
+              </div>
 
-            <div className="bg-neutral-900 border border-neutral-800/90 rounded-2xl p-3">
-              <span className="text-[10px] uppercase font-bold text-neutral-400 block">Objetivo</span>
-              <span className="text-lg font-extrabold font-mono text-white mt-0.5 block">RIR 1 - 2</span>
-              <span className="text-[10px] text-lime-400 font-medium">Hipertrofia</span>
+              <div className="flex items-center justify-between bg-neutral-950 p-3 rounded-2xl border border-neutral-800">
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-neutral-400 block">RIR Promedio</span>
+                  <span className="text-2xl font-extrabold font-mono text-white block mt-0.5">
+                    RIR {weeklyAnalytics.avgRir}
+                  </span>
+                </div>
+
+                <div className="text-right">
+                  <span
+                    className={`inline-block text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full border ${weeklyAnalytics.intensityStatus.badgeClass}`}
+                  >
+                    {weeklyAnalytics.intensityStatus.level}
+                  </span>
+                  <span className="text-[10px] text-neutral-400 block mt-1 font-mono">
+                    {weeklyAnalytics.failurePct}% de series al fallo
+                  </span>
+                </div>
+              </div>
+
+              <div
+                className={`p-3 rounded-2xl text-xs leading-relaxed border flex items-start gap-2.5 ${
+                  weeklyAnalytics.intensityStatus.isCritical
+                    ? 'bg-red-950/40 border-red-800/80 text-red-300'
+                    : 'bg-lime-400/10 border-lime-400/30 text-neutral-300'
+                }`}
+              >
+                <div className="shrink-0 mt-0.5">
+                  {weeklyAnalytics.intensityStatus.isCritical ? (
+                    <AlertTriangle className="w-4 h-4 text-red-400" />
+                  ) : (
+                    <Sparkles className="w-4 h-4 text-lime-400" />
+                  )}
+                </div>
+                <div>
+                  <span className="font-extrabold text-white block mb-0.5">
+                    {weeklyAnalytics.intensityStatus.isCritical ? '⚠️ Alerta de Sobrecarga:' : '💡 Consejo de Sobrecarga:'}
+                  </span>
+                  {weeklyAnalytics.intensityStatus.advice}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1752,7 +2163,7 @@ export default function ActiveWorkoutPage() {
 
                       <div className="space-y-2 pt-1 border-t border-neutral-800/80">
                         {currentDay.items.map((item, idx) => {
-                          const exInfo = catalog.find((c) => c.id === item.exerciseId) || catalog[0]
+                          const exInfo = catalog.find((c: CatalogExercise) => c.id === item.exerciseId) || catalog[0]
 
                           return (
                             <div
@@ -1763,9 +2174,9 @@ export default function ActiveWorkoutPage() {
                               }`}
                             >
                               <div className="flex items-center gap-2.5 min-w-0">
-                                <div className="w-10 h-11 rounded-lg bg-white p-0.5 border border-neutral-700 shrink-0 overflow-hidden">
+                                <div className="w-10 h-11 rounded-lg bg-neutral-950 border border-neutral-800 p-0.5 shrink-0 overflow-hidden flex items-center justify-center">
                                   <AnatomicalImage
-                                    src={exInfo.anatomical_image_url}
+                                    src={exInfo.anatomical_image_url || ''}
                                     alt={exInfo.name}
                                     targetMuscle={exInfo.target_muscle}
                                     className="w-full h-full object-contain"
@@ -1888,8 +2299,8 @@ export default function ActiveWorkoutPage() {
                   <div className="flex justify-between items-start mb-2.5">
                     <div className="flex items-center gap-3">
                       <div
-                        onClick={() => setSelectedPreview(catalog.find((c) => c.id === ex.exerciseId) || null)}
-                        className="relative w-18 h-20 rounded-xl bg-white p-1 border border-neutral-700/60 overflow-hidden shrink-0 cursor-pointer shadow-md"
+                        onClick={() => setSelectedPreview(catalog.find((c: CatalogExercise) => c.id === ex.exerciseId) || null)}
+                        className="relative w-18 h-20 rounded-xl bg-neutral-950 border border-neutral-800 overflow-hidden shrink-0 cursor-pointer shadow-md flex items-center justify-center p-1"
                       >
                         <AnatomicalImage
                           src={ex.anatomicalImageUrl}
@@ -2162,7 +2573,7 @@ export default function ActiveWorkoutPage() {
                         <button
                           onClick={(e) => openEditWorkoutModal(item, e)}
                           className="p-1.5 bg-neutral-950 hover:bg-neutral-800 text-neutral-400 hover:text-white rounded-lg transition"
-                          title="Editar sesión y series"
+                          title="Editar sesión completa y ejercicios"
                         >
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
@@ -2193,16 +2604,14 @@ export default function ActiveWorkoutPage() {
                           groupedWorkoutSets.map((grp, gIdx) => (
                             <div key={gIdx} className="bg-neutral-950 p-3 rounded-2xl border border-neutral-800/80 space-y-2">
                               <div className="flex items-center gap-2.5">
-                                {grp.exerciseInfo && (
-                                  <div className="w-8 h-9 rounded-lg bg-white p-0.5 shrink-0 overflow-hidden">
-                                    <AnatomicalImage
-                                      src={grp.exerciseInfo.anatomical_image_url}
-                                      alt={grp.exerciseName}
-                                      targetMuscle={grp.exerciseInfo.target_muscle}
-                                      className="w-full h-full object-contain"
-                                    />
-                                  </div>
-                                )}
+                                <div className="w-8 h-9 rounded-lg bg-neutral-900 border border-neutral-800 p-0.5 shrink-0 overflow-hidden flex items-center justify-center">
+                                  <AnatomicalImage
+                                    src={grp.exerciseInfo?.anatomical_image_url || ''}
+                                    alt={grp.exerciseName}
+                                    targetMuscle={grp.exerciseInfo?.target_muscle || 'General'}
+                                    className="w-full h-full object-contain"
+                                  />
+                                </div>
                                 <div>
                                   <h4 className="text-xs font-bold text-white">{grp.exerciseName}</h4>
                                   {grp.exerciseInfo && (
@@ -2301,11 +2710,11 @@ export default function ActiveWorkoutPage() {
           </div>
 
           <div className="space-y-2">
-            {filteredLibraryExercises.map((item) => (
+            {filteredLibraryExercises.map((item: CatalogExercise) => (
               <div key={item.id} className="w-full p-2.5 rounded-2xl bg-neutral-900 border border-neutral-800/80 flex items-center justify-between">
                 <div className="flex items-center gap-3 cursor-pointer flex-1" onClick={() => setSelectedPreview(item)}>
-                  <div className="w-14 h-16 rounded-xl bg-white p-1 border border-neutral-700/60 overflow-hidden shrink-0">
-                    <AnatomicalImage src={item.anatomical_image_url} alt={item.name} targetMuscle={item.target_muscle} className="w-full h-full object-contain" />
+                  <div className="w-14 h-16 rounded-xl bg-neutral-950 border border-neutral-800 overflow-hidden shrink-0 flex items-center justify-center p-0.5">
+                    <AnatomicalImage src={item.anatomical_image_url || ''} alt={item.name} targetMuscle={item.target_muscle} className="w-full h-full object-contain" />
                   </div>
                   <div>
                     <div className="text-sm font-semibold text-neutral-100">{item.name}</div>
@@ -2318,32 +2727,67 @@ export default function ActiveWorkoutPage() {
         </div>
       )}
 
-      {/* ================= MODAL: EDITAR SESIÓN PASADA (CON AGREGAR EJERCICIO EXTRA) ================= */}
+      {/* ================= MODAL DE RECUPERACIÓN DE SESIÓN (AUTOGUARDADO) ================= */}
+      {isInterruptedModalOpen && interruptedWorkout && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-3xl p-6 shadow-2xl space-y-4">
+            <div className="w-12 h-12 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-2xl flex items-center justify-center mx-auto">
+              <RotateCcw className="w-6 h-6 animate-spin" />
+            </div>
+
+            <div className="text-center">
+              <h3 className="text-base font-extrabold text-white">¿Reanudar sesión en curso?</h3>
+              <p className="text-xs text-neutral-400 mt-1">
+                Se detectó una sesión previa sin terminar:
+              </p>
+              <div className="bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 mt-2.5 text-xs font-bold text-lime-400">
+                {interruptedWorkout.workoutName} • {formatTime(interruptedWorkout.sessionSeconds)}
+              </div>
+            </div>
+
+            <div className="space-y-2 pt-2">
+              <button
+                onClick={handleResumeWorkout}
+                className="w-full py-3 bg-lime-400 hover:bg-lime-300 text-neutral-950 font-extrabold text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-2"
+              >
+                <Check className="w-4 h-4 stroke-[3]" /> Sí, reanudar entrenamiento
+              </button>
+              <button
+                onClick={handleDiscardBackup}
+                className="w-full py-2.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-semibold rounded-xl transition"
+              >
+                Descartar y empezar de cero
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: EDITAR SESIÓN PASADA ================= */}
       {editingWorkout && (
         <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-3xl p-5 shadow-2xl max-h-[92vh] flex flex-col">
             <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
               <h3 className="text-sm font-extrabold text-white flex items-center gap-1.5">
-                <Pencil className="w-4 h-4 text-lime-400" /> Editar Sesión Pasada
+                <Pencil className="w-4 h-4 text-lime-400" /> Editar Sesión Completa
               </h3>
               <button onClick={() => setEditingWorkout(null)} className="p-1 text-neutral-400">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="py-2 space-y-3 flex-1 overflow-y-auto pr-1">
+            <div className="py-2 space-y-3.5 flex-1 overflow-y-auto pr-1">
               <div>
                 <label className="text-[10px] font-bold text-neutral-400 block mb-1">Nombre de la Sesión</label>
                 <input
                   type="text"
                   value={editingWorkout.name}
                   onChange={(e) => setEditingWorkout({ ...editingWorkout, name: e.target.value })}
-                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-lime-400"
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-lime-400 font-bold"
                 />
               </div>
 
-              {/* BOTÓN PARA AÑADIR EJERCICIO EXTRA A ESTA SESIÓN PASADA */}
-              <div className="pt-1">
+              <div>
                 <button
                   type="button"
                   onClick={() => setIsAddingExerciseToHistory(!isAddingExerciseToHistory)}
@@ -2353,7 +2797,6 @@ export default function ActiveWorkoutPage() {
                 </button>
               </div>
 
-              {/* SELECTOR DESPLEGABLE DE EJERCICIOS PARA EL HISTORIAL */}
               {isAddingExerciseToHistory && (
                 <div className="bg-neutral-950 p-3 rounded-2xl border border-neutral-800 space-y-2">
                   <div className="relative">
@@ -2368,7 +2811,7 @@ export default function ActiveWorkoutPage() {
                   </div>
 
                   <div className="max-h-36 overflow-y-auto space-y-1 pr-1">
-                    {filteredHistoryExercises.slice(0, 15).map((catEx) => (
+                    {filteredHistoryExercises.slice(0, 15).map((catEx: CatalogExercise) => (
                       <div
                         key={catEx.id}
                         onClick={() => handleAddExerciseToHistorySession(catEx)}
@@ -2382,76 +2825,107 @@ export default function ActiveWorkoutPage() {
                 </div>
               )}
 
-              <div>
-                <label className="text-[10px] font-bold text-neutral-400 block mb-1.5">Series Registradas ({editingWorkoutSets.length})</label>
-                <div className="space-y-2">
-                  {editingWorkoutSets.map((s, idx) => {
-                    const exInfo =
-                      catalog.find((c) => c.id === s.exercise_id || c.name === s.exercise_id) ||
-                      ANATOMICAL_EXERCISES.find((c) => c.id === s.exercise_id)
-                    return (
-                      <div key={s.id || idx} className="bg-neutral-950 p-2.5 rounded-xl border border-neutral-800/80 space-y-1">
-                        <div className="flex justify-between items-center text-[11px] font-bold text-white">
-                          <span className="truncate max-w-[180px]">
-                            #{s.set_number || idx + 1} • {exInfo?.name || s.exercise_id}
+              <div className="space-y-3">
+                <span className="text-[10px] uppercase tracking-wider font-extrabold text-neutral-400 block">
+                  Ejercicios en esta sesión ({editingGroupedExercises.length})
+                </span>
+
+                {editingGroupedExercises.map((grp, gIdx) => (
+                  <div key={grp.exerciseId || gIdx} className="bg-neutral-950 p-3 rounded-2xl border border-neutral-800 space-y-2">
+                    <div className="flex justify-between items-center border-b border-neutral-800/60 pb-1.5">
+                      <div className="truncate pr-1">
+                        <span className="text-xs font-bold text-white block truncate">
+                          {gIdx + 1}. {grp.exerciseName}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => moveHistoryExercise(gIdx, 'up')}
+                          disabled={gIdx === 0}
+                          className="p-1 bg-neutral-900 hover:bg-neutral-800 text-neutral-400 disabled:opacity-30 rounded"
+                          title="Subir posición"
+                        >
+                          <ArrowUp className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveHistoryExercise(gIdx, 'down')}
+                          disabled={gIdx === editingGroupedExercises.length - 1}
+                          className="p-1 bg-neutral-900 hover:bg-neutral-800 text-neutral-400 disabled:opacity-30 rounded"
+                          title="Bajar posición"
+                        >
+                          <ArrowDown className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeHistoryExerciseGroup(gIdx)}
+                          className="p-1 bg-neutral-900 hover:bg-red-950/60 text-neutral-500 hover:text-red-400 rounded ml-1"
+                          title="Quitar este ejercicio completo"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      {grp.sets.map((s, sIdx) => (
+                        <div key={s.id || sIdx} className="grid grid-cols-12 items-center gap-1.5 bg-neutral-900/90 p-1.5 rounded-xl border border-neutral-800">
+                          <span className="col-span-2 text-center font-bold text-xs text-neutral-300 font-mono">
+                            #{s.set_number || sIdx + 1}
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveSetFromHistory(idx)}
-                            className="text-neutral-500 hover:text-red-400 p-0.5"
-                            title="Quitar serie"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                        <div className="grid grid-cols-3 gap-2">
-                          <div>
-                            <span className="text-[9px] text-neutral-500 block">Kg</span>
+
+                          <div className="col-span-3">
                             <input
                               type="number"
                               value={s.weight_kg}
-                              onChange={(e) => {
-                                const val = Number(e.target.value)
-                                setEditingWorkoutSets((prev) =>
-                                  prev.map((item, i) => (i === idx ? { ...item, weight_kg: val } : item))
-                                )
-                              }}
-                              className="w-full bg-neutral-900 border border-neutral-700 rounded-lg py-1 text-center font-bold text-lime-400 text-xs focus:border-lime-400"
+                              onChange={(e) => updateHistorySetValue(gIdx, sIdx, 'weight_kg', Number(e.target.value))}
+                              className="w-full bg-neutral-950 border border-neutral-700 rounded-lg py-1 text-center font-bold text-lime-400 text-xs focus:border-lime-400"
                             />
                           </div>
-                          <div>
-                            <span className="text-[9px] text-neutral-500 block">Reps</span>
+
+                          <div className="col-span-3">
                             <input
                               type="number"
                               value={s.reps}
-                              onChange={(e) => {
-                                const val = Number(e.target.value)
-                                setEditingWorkoutSets((prev) =>
-                                  prev.map((item, i) => (i === idx ? { ...item, reps: val } : item))
-                                )
-                              }}
-                              className="w-full bg-neutral-900 border border-neutral-700 rounded-lg py-1 text-center font-bold text-white text-xs focus:border-lime-400"
+                              onChange={(e) => updateHistorySetValue(gIdx, sIdx, 'reps', Number(e.target.value))}
+                              className="w-full bg-neutral-950 border border-neutral-700 rounded-lg py-1 text-center font-bold text-white text-xs focus:border-lime-400"
                             />
                           </div>
-                          <div>
-                            <span className="text-[9px] text-neutral-500 block">RIR</span>
+
+                          <div className="col-span-2">
                             <input
                               type="number"
                               value={s.rir}
-                              onChange={(e) => {
-                                const val = Number(e.target.value)
-                                setEditingWorkoutSets((prev) =>
-                                  prev.map((item, i) => (i === idx ? { ...item, rir: val } : item))
-                                )
-                              }}
-                              className="w-full bg-neutral-900 border border-neutral-700 rounded-lg py-1 text-center font-bold text-white text-xs focus:border-lime-400"
+                              onChange={(e) => updateHistorySetValue(gIdx, sIdx, 'rir', Number(e.target.value))}
+                              className="w-full bg-neutral-950 border border-neutral-700 rounded-lg py-1 text-center font-bold text-neutral-400 text-xs focus:border-lime-400"
                             />
                           </div>
+
+                          <div className="col-span-2 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => removeSetFromHistoryGroup(gIdx, sIdx)}
+                              className="text-neutral-500 hover:text-red-400 p-1"
+                              title="Borrar serie"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    )
-                  })}
-                </div>
+                      ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => addSetToHistoryGroup(gIdx)}
+                      className="w-full py-1.5 rounded-lg border border-dashed border-neutral-700 hover:border-neutral-500 text-[10px] font-bold text-neutral-300 flex items-center justify-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" /> Añadir Serie a {grp.exerciseName}
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -2517,7 +2991,7 @@ export default function ActiveWorkoutPage() {
             </div>
 
             <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
-              {filteredLiveExercises.map((catEx) => (
+              {filteredLiveExercises.map((catEx: CatalogExercise) => (
                 <div
                   key={catEx.id}
                   onClick={() => handleSubstituteExercise(catEx)}
@@ -2578,7 +3052,7 @@ export default function ActiveWorkoutPage() {
             </div>
 
             <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
-              {filteredLiveExercises.map((catEx) => (
+              {filteredLiveExercises.map((catEx: CatalogExercise) => (
                 <div
                   key={catEx.id}
                   onClick={() => handleAddExerciseToLiveWorkout(catEx)}
@@ -2690,7 +3164,7 @@ export default function ActiveWorkoutPage() {
         </div>
       )}
 
-      {/* ================= MODAL: EDITAR / ORDENAR DÍA ================= */}
+      {/* ================= MODAL: EDITAR / ORDENAR DÍA DE LA RUTINA ================= */}
       {isDayModalOpen && (
         <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-3xl p-5 shadow-2xl max-h-[92vh] flex flex-col">
@@ -2749,7 +3223,7 @@ export default function ActiveWorkoutPage() {
                   </span>
                   <div className="space-y-2.5 max-h-48 overflow-y-auto pr-1">
                     {modalItems.map((item, mIdx) => {
-                      const ex = catalog.find((c) => c.id === item.exerciseId)
+                      const ex = catalog.find((c: CatalogExercise) => c.id === item.exerciseId)
                       return (
                         <div key={item.exerciseId} className="bg-neutral-900 p-2.5 rounded-xl border border-neutral-800/80 space-y-1.5">
                           <div className="flex justify-between items-center">
@@ -2877,7 +3351,7 @@ export default function ActiveWorkoutPage() {
               </div>
 
               <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-                {filteredModalExercises.map((ex) => {
+                {filteredModalExercises.map((ex: CatalogExercise) => {
                   const isSelected = modalItems.some((i) => i.exerciseId === ex.id)
                   return (
                     <div
@@ -3049,8 +3523,8 @@ export default function ActiveWorkoutPage() {
               {selectedPreview.target_muscle}
             </span>
             <h3 className="text-lg font-bold text-white mb-3">{selectedPreview.name}</h3>
-            <div className="w-full h-64 rounded-2xl bg-white border border-neutral-700 p-2 overflow-hidden mb-4 flex items-center justify-center shadow-lg">
-              <AnatomicalImage src={selectedPreview.anatomical_image_url} alt={selectedPreview.name} targetMuscle={selectedPreview.target_muscle} className="w-full h-full object-contain" />
+            <div className="w-full h-64 rounded-2xl bg-neutral-950 border border-neutral-800 p-2 overflow-hidden mb-4 flex items-center justify-center shadow-lg">
+              <AnatomicalImage src={selectedPreview.anatomical_image_url || ''} alt={selectedPreview.name} targetMuscle={selectedPreview.target_muscle} className="w-full h-full object-contain" />
             </div>
             <button onClick={() => setSelectedPreview(null)} className="w-full py-2.5 bg-neutral-800 text-white text-xs font-semibold rounded-xl">
               Cerrar visor
