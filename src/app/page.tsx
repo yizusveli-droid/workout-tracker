@@ -40,9 +40,7 @@ import {
   Link2,
   AlertTriangle,
   RotateCcw,
-  Gauge,
   BarChart2,
-  TrendingUp,
   Target,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -345,7 +343,7 @@ export default function ActiveWorkoutPage() {
   const [interruptedWorkout, setInterruptedWorkout] = useState<ActiveWorkoutBackup | null>(null)
   const [isInterruptedModalOpen, setIsInterruptedModalOpen] = useState(false)
 
-  // Calendario y Navegación segura sin hidratación fallida
+  // Calendario semanal
   const [selectedDateKey, setSelectedDateKey] = useState<string>('')
   const [currentWeekOffset, setCurrentWeekOffset] = useState<number>(0)
 
@@ -909,13 +907,11 @@ export default function ActiveWorkoutPage() {
     return calculate1RM(calcWeight, calcReps)
   }, [calcWeight, calcReps])
 
-  // CÁLCULO DE PESO A CARGAR SEGÚN REPETICIONES OBJETIVO
   const targetWeightForReps = useMemo(() => {
     if (estimated1RMCalc <= 0 || targetRepsGoal <= 0) return 0
     if (targetRepsGoal === 1) return estimated1RMCalc
-    // Despeje de la fórmula Epley: Weight = 1RM / (1 + reps/30)
     const target = estimated1RMCalc / (1 + targetRepsGoal / 30)
-    return Math.round(target * 2) / 2 // Redondeo al 0.5 kg más cercano
+    return Math.round(target * 2) / 2
   }, [estimated1RMCalc, targetRepsGoal])
 
   const toggleSetComplete = (exerciseId: string, setId: string) => {
@@ -1383,7 +1379,7 @@ export default function ActiveWorkoutPage() {
     return { totalVolume, totalCompletedSets }
   }, [exercises])
 
-  // Cálculo seguro de la tira de 7 días
+  // Lunes a Domingo de la semana seleccionada
   const weekDays = useMemo(() => {
     if (!selectedDateKey) return []
     const [y, m, d] = selectedDateKey.split('-').map(Number)
@@ -1440,24 +1436,21 @@ export default function ActiveWorkoutPage() {
     })
   }, [historyList, weekStart, weekEnd])
 
-  // ENTRENAMIENTOS ESPECÍFICOS DEL DÍA SELECCIONADO EN EL CALENDARIO
   const selectedDayWorkouts = useMemo(() => {
     if (!selectedDateKey) return []
     return historyList.filter((w) => w.completed_at && w.completed_at.split('T')[0] === selectedDateKey)
   }, [historyList, selectedDateKey])
 
-  // ANÁLISIS DE INTENSIDAD Y VOLUMEN POR GRUPO MUSCULAR (SEMÁFORO ESPECÍFICO)
-  const muscleIntensityAnalytics = useMemo(() => {
-    const muscleMap: Record<
-      string,
-      { totalSets: number; totalRir: number; rirCount: number; failureSets: number }
-    > = {
-      Espalda: { totalSets: 0, totalRir: 0, rirCount: 0, failureSets: 0 },
-      Pecho: { totalSets: 0, totalRir: 0, rirCount: 0, failureSets: 0 },
-      Cuádriceps: { totalSets: 0, totalRir: 0, rirCount: 0, failureSets: 0 },
-      Isquiosurales: { totalSets: 0, totalRir: 0, rirCount: 0, failureSets: 0 },
-      Hombros: { totalSets: 0, totalRir: 0, rirCount: 0, failureSets: 0 },
-      Brazos: { totalSets: 0, totalRir: 0, rirCount: 0, failureSets: 0 },
+  // ================= SEMÁFORO DE VOLUMEN SEMANAL POR GRUPO MUSCULAR (SIN RIR) =================
+  const muscleVolumeAnalytics = useMemo(() => {
+    const muscleMap: Record<string, { totalSets: number; target: number }> = {
+      Espalda: { totalSets: 0, target: 16 },
+      Pecho: { totalSets: 0, target: 14 },
+      Cuádriceps: { totalSets: 0, target: 14 },
+      Isquiosurales: { totalSets: 0, target: 12 },
+      Hombros: { totalSets: 0, target: 14 },
+      Brazos: { totalSets: 0, target: 14 },
+      Glúteos: { totalSets: 0, target: 12 },
     }
 
     let weekVolume = 0
@@ -1482,58 +1475,52 @@ export default function ActiveWorkoutPage() {
           else if (muscle.includes('Isquio') || muscle.includes('Femoral')) key = 'Isquiosurales'
           else if (muscle.includes('Hombro')) key = 'Hombros'
           else if (muscle.includes('Bíceps') || muscle.includes('Tríceps') || muscle.includes('Brazo')) key = 'Brazos'
+          else if (muscle.includes('Glúteo')) key = 'Glúteos'
 
           if (key && muscleMap[key]) {
             muscleMap[key].totalSets++
-            if (typeof s.rir === 'number' && !isNaN(s.rir)) {
-              muscleMap[key].totalRir += s.rir
-              muscleMap[key].rirCount++
-              if (s.rir <= 0.5) muscleMap[key].failureSets++
-            }
           }
         }
       })
     })
 
-    // Construir diagnósticos por cada grupo muscular
+    // Construir diagnóstico del semáforo de volumen
     const musclesList = Object.entries(muscleMap).map(([muscleName, data]) => {
-      const avgRir = data.rirCount > 0 ? (data.totalRir / data.rirCount).toFixed(1) : '-'
-      const numRir = parseFloat(avgRir)
+      const sets = data.totalSets
+      const target = data.target
+      const pct = Math.min(100, Math.round((sets / target) * 100))
 
       let status = 'SIN ENTRENAR'
       let badge = 'bg-neutral-800 text-neutral-400 border-neutral-700'
-      let text = 'Sin registros esta semana'
-      let isWarning = false
+      let text = '0 series esta semana. Se reinicia cada lunes.'
+      let barColor = 'bg-neutral-800'
 
-      if (data.totalSets > 0) {
-        if (numRir < 0.6) {
-          status = 'AL FALLO / SOBRECARGA'
-          badge = 'bg-red-500/20 text-red-400 border-red-500/40'
-          text = 'Fatiga muy alta acumulada. Considera no llegar al fallo en cada serie.'
-          isWarning = true
-        } else if (numRir <= 1.0) {
-          status = 'ALTA EXIGENCIA'
-          badge = 'bg-orange-500/20 text-orange-400 border-orange-500/40'
-          text = 'Estímulo potente cerca del límite. Monitorea la recuperación muscular.'
-        } else if (numRir <= 2.2) {
-          status = 'RANGO ÓPTIMO'
-          badge = 'bg-lime-400/20 text-lime-400 border-lime-400/40'
-          text = 'Tensión mecánica ideal para hipertrofia con fatiga controlada.'
-        } else {
-          status = 'SUBMÁXIMO'
-          badge = 'bg-blue-500/20 text-blue-400 border-blue-500/40'
-          text = 'Intensidad ligera. Tienes margen para acercarte más al fallo (RIR 1-2).'
-        }
+      if (sets >= 19) {
+        status = 'MÁXIMO / POSIBLE SOBRECARGA'
+        badge = 'bg-red-500/20 text-red-400 border-red-500/40'
+        text = 'Límite recuperable semanal alcanzado (MRV). Considera no añadir más series.'
+        barColor = 'bg-red-500'
+      } else if (sets >= 9) {
+        status = 'VOLUMEN ÓPTIMO'
+        badge = 'bg-lime-400/20 text-lime-400 border-lime-400/40'
+        text = 'Rango ideal de hipertrofia muscular (10 a 18 series por semana).'
+        barColor = 'bg-lime-400'
+      } else if (sets >= 1) {
+        status = 'MANTENIMIENTO'
+        badge = 'bg-blue-500/20 text-blue-400 border-blue-500/40'
+        text = 'Volumen bajo/mantenimiento. Tienes margen para meter más series efectivas.'
+        barColor = 'bg-blue-400'
       }
 
       return {
         muscleName,
-        sets: data.totalSets,
-        avgRir,
+        sets,
+        target,
+        pct,
         status,
         badge,
         text,
-        isWarning,
+        barColor,
       }
     })
 
@@ -1750,7 +1737,7 @@ export default function ActiveWorkoutPage() {
 
               <div className="text-center">
                 <span className="text-[10px] uppercase font-mono tracking-wider font-extrabold text-neutral-400 block">
-                  {currentWeekOffset === 0 ? 'Semana Actual' : currentWeekOffset === -1 ? 'Semana Pasada' : `Hace ${Math.abs(currentWeekOffset)} semanas`}
+                  {currentWeekOffset === 0 ? 'Semana Actual (L - D)' : currentWeekOffset === -1 ? 'Semana Pasada' : `Hace ${Math.abs(currentWeekOffset)} semanas`}
                 </span>
                 <span className="text-xs font-extrabold text-lime-400">{currentMonthLabel}</span>
               </div>
@@ -1889,35 +1876,49 @@ export default function ActiveWorkoutPage() {
             </div>
           )}
 
-          {/* ================= SEMÁFORO ESPECÍFICO DE INTENSIDAD POR GRUPO MUSCULAR ================= */}
-          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-4 space-y-3 shadow-xl">
+          {/* ================= SEMÁFORO DE VOLUMEN SEMANAL POR GRUPO MUSCULAR (SIN RIR) ================= */}
+          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-4 space-y-3.5 shadow-xl">
             <div className="flex items-center justify-between border-b border-neutral-800/80 pb-2.5">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-orange-500/10 text-orange-400 flex items-center justify-center">
-                  <Gauge className="w-4 h-4" />
+                <div className="w-7 h-7 rounded-lg bg-lime-400/10 text-lime-400 flex items-center justify-center">
+                  <BarChart2 className="w-4 h-4" />
                 </div>
                 <div>
                   <span className="text-[10px] uppercase font-extrabold tracking-wider text-neutral-400 block">
-                    Semáforo de Intensidad por Músculo
+                    Semáforo de Volumen Semanal
                   </span>
-                  <h3 className="text-sm font-extrabold text-white">Sobrecarga y RIR Específico</h3>
+                  <h3 className="text-sm font-extrabold text-white">Series Efectivas (Lunes a Domingo)</h3>
                 </div>
               </div>
+              <span className="text-[10px] font-mono font-bold text-neutral-400">
+                Se reinicia los lunes
+              </span>
             </div>
 
-            <div className="space-y-2.5">
-              {muscleIntensityAnalytics.musclesList.map((m) => (
-                <div key={m.muscleName} className="bg-neutral-950 p-2.5 rounded-2xl border border-neutral-800/80 space-y-1">
+            <div className="space-y-3">
+              {muscleVolumeAnalytics.musclesList.map((m) => (
+                <div key={m.muscleName} className="bg-neutral-950 p-3 rounded-2xl border border-neutral-800/80 space-y-2">
                   <div className="flex justify-between items-center">
                     <span className="text-xs font-bold text-white flex items-center gap-1.5">
                       {m.muscleName}
-                      <span className="text-[10px] font-mono text-neutral-400">({m.sets} series)</span>
+                      <span className="text-[11px] font-mono text-lime-400 font-extrabold">
+                        {m.sets} / {m.target} series
+                      </span>
                     </span>
                     <span className={`text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full border ${m.badge}`}>
-                      {m.status} {m.avgRir !== '-' ? `• RIR ${m.avgRir}` : ''}
+                      {m.status}
                     </span>
                   </div>
-                  <p className="text-[11px] text-neutral-400 leading-tight">{m.text}</p>
+
+                  {/* Barra de progreso de volumen hacia el rango óptimo */}
+                  <div className="w-full bg-neutral-900 h-2 rounded-full overflow-hidden border border-neutral-800">
+                    <div
+                      className={`h-full transition-all duration-500 ${m.barColor}`}
+                      style={{ width: `${m.pct}%` }}
+                    />
+                  </div>
+
+                  <p className="text-[10px] text-neutral-400 leading-tight">{m.text}</p>
                 </div>
               ))}
             </div>
