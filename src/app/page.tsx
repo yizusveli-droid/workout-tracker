@@ -42,6 +42,7 @@ import {
   RotateCcw,
   BarChart2,
   Target,
+  CornerDownRight,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { ANATOMICAL_EXERCISES, CatalogExercise } from '@/data/exercises'
@@ -57,6 +58,7 @@ interface ExerciseSet {
   isCompleted: boolean
   isPr: boolean
   setType?: SetType
+  parentSetId?: string // Enlace a la serie madre
 }
 
 interface WorkoutExercise {
@@ -914,23 +916,27 @@ export default function ActiveWorkoutPage() {
     return Math.round(target * 2) / 2
   }, [estimated1RMCalc, targetRepsGoal])
 
+  // Lógica de completar serie y activación de descanso (considerando sub-series drop/rest-pause)
   const toggleSetComplete = (exerciseId: string, setId: string) => {
     if (!isSessionRunning) setIsSessionRunning(true)
 
     setExercises((prev) => {
       const currentEx = prev.find((e) => e.id === exerciseId)
-      const currentSuperset = currentEx?.supersetGroup
-      const targetSet = currentEx?.sets.find((s) => s.id === setId)
+      if (!currentEx) return prev
+
+      const targetSet = currentEx.sets.find((s) => s.id === setId)
       const willBeCompleted = targetSet ? !targetSet.isCompleted : false
 
-      let shouldTriggerRest = false
+      // Si es una serie madre que tiene un drop set encadenado sin completar, NO lanzar descanso aún
+      const hasUnfinishedChildren = currentEx.sets.some(
+        (s) => s.parentSetId === setId && !s.isCompleted
+      )
 
-      if (!currentSuperset) {
-        shouldTriggerRest = willBeCompleted
-      } else {
-        const groupExercises = prev.filter((e) => e.supersetGroup === currentSuperset)
+      let shouldTriggerRest = willBeCompleted && !hasUnfinishedChildren
+
+      if (currentEx.supersetGroup && shouldTriggerRest) {
+        const groupExercises = prev.filter((e) => e.supersetGroup === currentEx.supersetGroup)
         const totalSetsInGroup = groupExercises.reduce((acc, e) => acc + e.sets.length, 0)
-
         const completedSetsCount = groupExercises.reduce((acc, e) => {
           return (
             acc +
@@ -938,8 +944,8 @@ export default function ActiveWorkoutPage() {
           )
         }, 0)
 
-        if (willBeCompleted && completedSetsCount === totalSetsInGroup) {
-          shouldTriggerRest = true
+        if (completedSetsCount < totalSetsInGroup) {
+          shouldTriggerRest = false
         }
       }
 
@@ -996,6 +1002,49 @@ export default function ActiveWorkoutPage() {
     )
   }
 
+  // AÑADIR SUB-SERIE ENCADENADA (DROP SET / REST-PAUSE)
+  const addChainedSubSet = (exerciseId: string, parentSet: ExerciseSet, type: 'dropset' | 'restpause') => {
+    setExercises((prev) =>
+      prev.map((ex) => {
+        if (ex.id !== exerciseId) return ex
+
+        const parentIndex = ex.sets.findIndex((s) => s.id === parentSet.id)
+        if (parentIndex === -1) return ex
+
+        // Reducir peso sugerido si es drop set (ej. -25% o -2.5kg)
+        const suggestedWeight =
+          type === 'dropset'
+            ? Math.max(1, Math.round((parentSet.weight * 0.7) * 2) / 2)
+            : parentSet.weight
+
+        const newSubSet: ExerciseSet = {
+          id: `subset-${Date.now()}`,
+          setNumber: parentSet.setNumber, // Mismo número base
+          weight: suggestedWeight,
+          reps: type === 'dropset' ? Math.max(4, parentSet.reps - 2) : 5,
+          rir: 0, // Generalmente al fallo
+          isCompleted: false,
+          isPr: false,
+          setType: type,
+          parentSetId: parentSet.id,
+        }
+
+        const updatedSets = [...ex.sets]
+        // Insertar justo debajo de la serie madre o de sus drops hermanos
+        let insertIndex = parentIndex + 1
+        while (
+          insertIndex < updatedSets.length &&
+          updatedSets[insertIndex].parentSetId === parentSet.id
+        ) {
+          insertIndex++
+        }
+
+        updatedSets.splice(insertIndex, 0, newSubSet)
+        return { ...ex, sets: updatedSets }
+      })
+    )
+  }
+
   const updateExerciseNote = (exerciseId: string, noteText: string) => {
     setExercises((prev) =>
       prev.map((ex) => (ex.id === exerciseId ? { ...ex, note: noteText } : ex))
@@ -1018,12 +1067,14 @@ export default function ActiveWorkoutPage() {
     setExercises((prev) =>
       prev.map((ex) => {
         if (ex.id !== exerciseId) return ex
-        const lastSet = ex.sets[ex.sets.length - 1]
+        const rootSets = ex.sets.filter((s) => !s.parentSetId)
+        const lastRoot = rootSets[rootSets.length - 1]
+
         const newSet: ExerciseSet = {
           id: Date.now().toString(),
-          setNumber: ex.sets.length + 1,
-          weight: lastSet ? lastSet.weight : 40,
-          reps: lastSet ? lastSet.reps : 10,
+          setNumber: rootSets.length + 1,
+          weight: lastRoot ? lastRoot.weight : 40,
+          reps: lastRoot ? lastRoot.reps : 10,
           rir: 1,
           isCompleted: false,
           isPr: false,
@@ -1038,10 +1089,21 @@ export default function ActiveWorkoutPage() {
     setExercises((prev) =>
       prev.map((ex) => {
         if (ex.id !== exerciseId || ex.sets.length <= 1) return ex
-        const filtered = ex.sets
-          .filter((s) => s.id !== setId)
-          .map((s, idx) => ({ ...s, setNumber: idx + 1 }))
-        return { ...ex, sets: filtered }
+
+        // Si eliminamos una serie madre, eliminamos también sus sub-series hijas
+        const filtered = ex.sets.filter((s) => s.id !== setId && s.parentSetId !== setId)
+
+        // Renumerar únicamente las series principales
+        let currentRootNumber = 0
+        const renumbered = filtered.map((s) => {
+          if (!s.parentSetId) {
+            currentRootNumber++
+            return { ...s, setNumber: currentRootNumber }
+          }
+          return s
+        })
+
+        return { ...ex, sets: renumbered }
       })
     )
   }
@@ -1365,6 +1427,9 @@ export default function ActiveWorkoutPage() {
     setIsDayModalOpen(false)
   }
 
+  // Estadísticas del entrenamiento activo:
+  // - Tonelaje: suma TODO (series madre + sub-series drop/rest-pause).
+  // - Series efectivas: solo cuenta las series MADRE para no inflar la fatiga del semáforo.
   const workoutStats = useMemo(() => {
     let totalVolume = 0
     let totalCompletedSets = 0
@@ -1372,7 +1437,9 @@ export default function ActiveWorkoutPage() {
       ex.sets.forEach((set) => {
         if (set.isCompleted) {
           totalVolume += set.weight * set.reps
-          totalCompletedSets += 1
+          if (!set.parentSetId) {
+            totalCompletedSets += 1
+          }
         }
       })
     })
@@ -1441,7 +1508,7 @@ export default function ActiveWorkoutPage() {
     return historyList.filter((w) => w.completed_at && w.completed_at.split('T')[0] === selectedDateKey)
   }, [historyList, selectedDateKey])
 
-  // ================= SEMÁFORO DE VOLUMEN SEMANAL POR GRUPO MUSCULAR (SIN RIR) =================
+  // SEMÁFORO DE VOLUMEN SEMANAL POR GRUPO MUSCULAR (SIN RIR)
   const muscleVolumeAnalytics = useMemo(() => {
     const muscleMap: Record<string, { totalSets: number; target: number }> = {
       Espalda: { totalSets: 0, target: 16 },
@@ -1484,7 +1551,6 @@ export default function ActiveWorkoutPage() {
       })
     })
 
-    // Construir diagnóstico del semáforo de volumen
     const musclesList = Object.entries(muscleMap).map(([muscleName, data]) => {
       const sets = data.totalSets
       const target = data.target
@@ -1648,10 +1714,10 @@ export default function ActiveWorkoutPage() {
         const setsToInsert = exercises.flatMap((ex) =>
           ex.sets
             .filter((s) => s.isCompleted)
-            .map((s) => ({
+            .map((s, idx) => ({
               workout_id: workout.id,
               exercise_id: String(ex.exerciseId),
-              set_number: s.setNumber,
+              set_number: idx + 1,
               weight_kg: s.weight,
               reps: s.reps,
               rir: s.rir,
@@ -1831,7 +1897,7 @@ export default function ActiveWorkoutPage() {
                   </span>
                   <h4 className="text-xs font-bold text-white truncate">{interruptedWorkout.workoutName}</h4>
                   <p className="text-[11px] text-neutral-400 mt-0.5">
-                    Tiempo: {formatTime(interruptedWorkout.sessionSeconds)} • {interruptedWorkout.exercises?.reduce((acc, ex) => acc + ex.sets.filter(s => s.isCompleted).length, 0)} series listas
+                    Tiempo: {formatTime(interruptedWorkout.sessionSeconds)} • {interruptedWorkout.exercises?.reduce((acc, ex) => acc + ex.sets.filter(s => s.isCompleted && !s.parentSetId).length, 0)} series listas
                   </p>
                 </div>
               </div>
@@ -1876,7 +1942,7 @@ export default function ActiveWorkoutPage() {
             </div>
           )}
 
-          {/* ================= SEMÁFORO DE VOLUMEN SEMANAL POR GRUPO MUSCULAR (SIN RIR) ================= */}
+          {/* ================= SEMÁFORO DE VOLUMEN SEMANAL POR GRUPO MUSCULAR ================= */}
           <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-4 space-y-3.5 shadow-xl">
             <div className="flex items-center justify-between border-b border-neutral-800/80 pb-2.5">
               <div className="flex items-center gap-2">
@@ -1910,7 +1976,6 @@ export default function ActiveWorkoutPage() {
                     </span>
                   </div>
 
-                  {/* Barra de progreso de volumen hacia el rango óptimo */}
                   <div className="w-full bg-neutral-900 h-2 rounded-full overflow-hidden border border-neutral-800">
                     <div
                       className={`h-full transition-all duration-500 ${m.barColor}`}
@@ -1973,7 +2038,6 @@ export default function ActiveWorkoutPage() {
               </div>
             </div>
 
-            {/* SECCIÓN BIDIRECCIONAL: ¿CUÁNTO PESO LEVANTAR CON X REPS? */}
             <div className="bg-neutral-950/80 p-3 rounded-2xl border border-lime-400/30 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] uppercase font-extrabold text-lime-400 flex items-center gap-1">
@@ -2183,7 +2247,7 @@ export default function ActiveWorkoutPage() {
         </div>
       )}
 
-      {/* ================= 3. ENTRENAR ================= */}
+      {/* ================= 3. ENTRENAR CON SUB-SERIES ENCADENADAS ================= */}
       {activeTab === 'workout' && (
         <div>
           <header className="border-b border-neutral-800 pb-3.5 mb-4">
@@ -2345,115 +2409,149 @@ export default function ActiveWorkoutPage() {
                   </div>
 
                   <div className="space-y-1.5">
-                    {ex.sets.map((set) => (
-                      <div
-                        key={set.id}
-                        className={`grid grid-cols-12 items-center gap-2 p-2 rounded-xl transition ${
-                          set.isCompleted
-                            ? 'bg-neutral-950/60 border border-neutral-800 opacity-80'
-                            : 'bg-neutral-800/60 border border-neutral-700/60'
-                        }`}
-                      >
-                        <div className="col-span-2 flex flex-col justify-center">
-                          <div className="flex items-center gap-1 font-bold text-xs text-neutral-300">
-                            <button onClick={() => removeSetFromExercise(ex.id, set.id)} className="hover:text-red-400 transition">
-                              #{set.setNumber}
-                            </button>
-                            {set.isPr && <Trophy className="w-3 h-3 text-yellow-400 inline" />}
+                    {ex.sets.map((set) => {
+                      const isChild = Boolean(set.parentSetId)
+
+                      return (
+                        <div key={set.id} className="space-y-1">
+                          <div
+                            className={`grid grid-cols-12 items-center gap-2 p-2 rounded-xl transition ${
+                              isChild
+                                ? 'ml-4 bg-neutral-950/80 border-l-2 border-l-orange-500/70 border-y border-r border-neutral-800'
+                                : set.isCompleted
+                                ? 'bg-neutral-950/60 border border-neutral-800 opacity-80'
+                                : 'bg-neutral-800/60 border border-neutral-700/60'
+                            }`}
+                          >
+                            <div className="col-span-2 flex flex-col justify-center">
+                              <div className="flex items-center gap-1 font-bold text-xs text-neutral-300">
+                                {isChild && <CornerDownRight className="w-3 h-3 text-orange-400 shrink-0" />}
+                                <button
+                                  onClick={() => removeSetFromExercise(ex.id, set.id)}
+                                  className="hover:text-red-400 transition"
+                                  title="Tocar para borrar serie"
+                                >
+                                  {isChild ? `#${set.setNumber}A` : `#${set.setNumber}`}
+                                </button>
+                                {set.isPr && <Trophy className="w-3 h-3 text-yellow-400 inline" />}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => cycleSetType(ex.id, set.id)}
+                                className={`text-[8px] uppercase font-mono px-1 py-0.5 rounded text-left mt-0.5 truncate ${
+                                  set.setType === 'dropset'
+                                    ? 'bg-orange-500/20 text-orange-400'
+                                    : set.setType === 'restpause'
+                                    ? 'bg-blue-500/20 text-blue-400'
+                                    : set.setType === 'failure'
+                                    ? 'bg-red-500/20 text-red-400'
+                                    : 'text-neutral-500 hover:text-neutral-300'
+                                }`}
+                              >
+                                {set.setType === 'dropset'
+                                  ? 'Drop'
+                                  : set.setType === 'restpause'
+                                  ? 'R-Pause'
+                                  : set.setType === 'failure'
+                                  ? 'Fallo'
+                                  : 'Normal'}
+                              </button>
+                            </div>
+
+                            <div className="col-span-3">
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                disabled={set.isCompleted}
+                                value={set.weight === 0 ? '' : set.weight}
+                                onFocus={(e) => e.target.select()}
+                                onChange={(e) => {
+                                  const val = e.target.value
+                                  if (/^\d*\.?\d*$/.test(val)) {
+                                    updateSetValue(ex.id, set.id, 'weight', val === '' ? 0 : Number(val))
+                                  }
+                                }}
+                                className="w-full bg-neutral-900 border border-neutral-700 rounded-lg py-1.5 text-center text-sm font-semibold focus:outline-none focus:border-lime-400"
+                              />
+                            </div>
+
+                            <div className="col-span-3">
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                disabled={set.isCompleted}
+                                value={set.reps === 0 ? '' : set.reps}
+                                onFocus={(e) => e.target.select()}
+                                onChange={(e) => {
+                                  const val = e.target.value
+                                  if (/^\d*$/.test(val)) {
+                                    updateSetValue(ex.id, set.id, 'reps', val === '' ? 0 : Number(val))
+                                  }
+                                }}
+                                className="w-full bg-neutral-900 border border-neutral-700 rounded-lg py-1.5 text-center text-sm font-semibold focus:outline-none focus:border-lime-400"
+                              />
+                            </div>
+
+                            <div className="col-span-2">
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                disabled={set.isCompleted}
+                                value={set.rir}
+                                onFocus={(e) => e.target.select()}
+                                onChange={(e) => {
+                                  const val = e.target.value
+                                  if (/^\d*$/.test(val)) {
+                                    updateSetValue(ex.id, set.id, 'rir', val === '' ? 0 : Number(val))
+                                  }
+                                }}
+                                className="w-full bg-neutral-900 border border-neutral-700 rounded-lg py-1.5 text-center text-sm font-semibold focus:outline-none focus:border-lime-400"
+                              />
+                            </div>
+
+                            <div className="col-span-2 flex justify-end">
+                              <button
+                                onClick={() => toggleSetComplete(ex.id, set.id)}
+                                className={`w-9 h-9 rounded-xl flex items-center justify-center transition ${
+                                  set.isCompleted ? 'bg-lime-400 text-neutral-950 font-bold shadow-md' : 'bg-neutral-800 text-neutral-400'
+                                }`}
+                              >
+                                <Check className="w-5 h-5 stroke-[2.5]" />
+                              </button>
+                            </div>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => cycleSetType(ex.id, set.id)}
-                            className={`text-[8px] uppercase font-mono px-1 py-0.5 rounded text-left mt-0.5 truncate ${
-                              set.setType === 'dropset'
-                                ? 'bg-orange-500/20 text-orange-400'
-                                : set.setType === 'restpause'
-                                ? 'bg-blue-500/20 text-blue-400'
-                                : set.setType === 'failure'
-                                ? 'bg-red-500/20 text-red-400'
-                                : 'text-neutral-500 hover:text-neutral-300'
-                            }`}
-                          >
-                            {set.setType === 'dropset'
-                              ? 'Drop'
-                              : set.setType === 'restpause'
-                              ? 'R-Pause'
-                              : set.setType === 'failure'
-                              ? 'Fallo'
-                              : 'Normal'}
-                          </button>
-                        </div>
 
-                        <div className="col-span-3">
-                          <input
-                            type="text"
-                            inputMode="decimal"
-                            disabled={set.isCompleted}
-                            value={set.weight === 0 ? '' : set.weight}
-                            onFocus={(e) => e.target.select()}
-                            onChange={(e) => {
-                              const val = e.target.value
-                              if (/^\d*\.?\d*$/.test(val)) {
-                                updateSetValue(ex.id, set.id, 'weight', val === '' ? 0 : Number(val))
-                              }
-                            }}
-                            className="w-full bg-neutral-900 border border-neutral-700 rounded-lg py-1.5 text-center text-sm font-semibold focus:outline-none focus:border-lime-400"
-                          />
+                          {/* BOTONES PARA ENLAZAR DROP SET O REST PAUSE DIRECTO BAJO LA SERIE MADRE */}
+                          {!isChild && (
+                            <div className="flex justify-end gap-1 px-1">
+                              <button
+                                type="button"
+                                onClick={() => addChainedSubSet(ex.id, set, 'dropset')}
+                                className="text-[9px] font-mono px-2 py-0.5 rounded-lg bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/30 flex items-center gap-1 transition"
+                                title="Encadenar bajada de peso sin descanso"
+                              >
+                                <CornerDownRight className="w-2.5 h-2.5" /> + Drop Set
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => addChainedSubSet(ex.id, set, 'restpause')}
+                                className="text-[9px] font-mono px-2 py-0.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center gap-1 transition"
+                                title="Encadenar micropausa de 15s con el mismo peso"
+                              >
+                                <CornerDownRight className="w-2.5 h-2.5" /> + Rest-Pause
+                              </button>
+                            </div>
+                          )}
                         </div>
-
-                        <div className="col-span-3">
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            disabled={set.isCompleted}
-                            value={set.reps === 0 ? '' : set.reps}
-                            onFocus={(e) => e.target.select()}
-                            onChange={(e) => {
-                              const val = e.target.value
-                              if (/^\d*$/.test(val)) {
-                                updateSetValue(ex.id, set.id, 'reps', val === '' ? 0 : Number(val))
-                              }
-                            }}
-                            className="w-full bg-neutral-900 border border-neutral-700 rounded-lg py-1.5 text-center text-sm font-semibold focus:outline-none focus:border-lime-400"
-                          />
-                        </div>
-
-                        <div className="col-span-2">
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            disabled={set.isCompleted}
-                            value={set.rir}
-                            onFocus={(e) => e.target.select()}
-                            onChange={(e) => {
-                              const val = e.target.value
-                              if (/^\d*$/.test(val)) {
-                                updateSetValue(ex.id, set.id, 'rir', val === '' ? 0 : Number(val))
-                              }
-                            }}
-                            className="w-full bg-neutral-900 border border-neutral-700 rounded-lg py-1.5 text-center text-sm font-semibold focus:outline-none focus:border-lime-400"
-                          />
-                        </div>
-
-                        <div className="col-span-2 flex justify-end">
-                          <button
-                            onClick={() => toggleSetComplete(ex.id, set.id)}
-                            className={`w-9 h-9 rounded-xl flex items-center justify-center transition ${
-                              set.isCompleted ? 'bg-lime-400 text-neutral-950 font-bold shadow-md' : 'bg-neutral-800 text-neutral-400'
-                            }`}
-                          >
-                            <Check className="w-5 h-5 stroke-[2.5]" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
 
                   <button
                     onClick={() => addSetToExercise(ex.id)}
                     className="mt-2.5 w-full py-2 rounded-xl border border-dashed border-neutral-700 hover:border-neutral-500 flex items-center justify-center gap-1 text-xs font-semibold text-neutral-300 transition"
                   >
-                    <Plus className="w-3.5 h-3.5" /> Añadir Serie
+                    <Plus className="w-3.5 h-3.5" /> Añadir Serie Principal
                   </button>
                 </section>
               )
