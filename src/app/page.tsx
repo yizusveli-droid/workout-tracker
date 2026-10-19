@@ -389,39 +389,7 @@ export default function ActiveWorkoutPage() {
     }
   }, [])
 
-  useEffect(() => {
-    if (exercises.length === 0 && DEFAULT_5_DAY_PROGRAM.days[0]) {
-      const d1 = DEFAULT_5_DAY_PROGRAM.days[0]
-      const built: WorkoutExercise[] = d1.items.map((item, idx) => {
-        const catEx = catalog.find((c) => c.id === item.exerciseId) || catalog[0]
-        const defaultSets: ExerciseSet[] = Array.from({ length: item.setsCount }).map((_, sIdx) => ({
-          id: `set-init-${idx}-${sIdx}`,
-          setNumber: sIdx + 1,
-          weight: item.defaultWeight,
-          reps: item.defaultReps,
-          rir: item.defaultRir,
-          isCompleted: false,
-          isPr: false,
-          setType: 'normal' as const,
-        }))
-
-        return {
-          id: `wex-init-${idx}`,
-          exerciseId: catEx.id,
-          name: catEx.name,
-          targetMuscle: catEx.target_muscle,
-          secondaryMuscle: catEx.secondary_muscle,
-          anatomicalImageUrl: catEx.anatomical_image_url || '',
-          previousBest: `${item.defaultWeight} kg × ${item.defaultReps}`,
-          note: item.note || '',
-          supersetGroup: item.supersetGroup || '',
-          sets: defaultSets,
-        }
-      })
-      setExercises(built)
-      setWorkoutName(d1.title)
-    }
-  }, [catalog, exercises.length])
+  // La pestaña Entrenar inicia limpia (sin rutina precargada)
 
   useEffect(() => {
     try {
@@ -1085,15 +1053,17 @@ export default function ActiveWorkoutPage() {
     )
   }
 
-  const removeSetFromExercise = (exerciseId: string, setId: string) => {
+  const removeSetFromExercise = (exerciseId: string, setId: string, setNumber?: number) => {
+    const confirmMsg = setNumber !== undefined
+      ? `¿Estás seguro de eliminar la serie #${setNumber}?`
+      : '¿Estás seguro de eliminar esta serie?'
+    if (!confirm(confirmMsg)) return
     setExercises((prev) =>
       prev.map((ex) => {
         if (ex.id !== exerciseId || ex.sets.length <= 1) return ex
 
-        // Si eliminamos una serie madre, eliminamos también sus sub-series hijas
         const filtered = ex.sets.filter((s) => s.id !== setId && s.parentSetId !== setId)
 
-        // Renumerar únicamente las series principales
         let currentRootNumber = 0
         const renumbered = filtered.map((s) => {
           if (!s.parentSetId) {
@@ -1722,6 +1692,7 @@ export default function ActiveWorkoutPage() {
               reps: s.reps,
               rir: s.rir,
               is_pr: s.isPr,
+              set_type: s.setType || 'normal',
             }))
         )
 
@@ -2250,7 +2221,43 @@ export default function ActiveWorkoutPage() {
       {/* ================= 3. ENTRENAR CON SUB-SERIES ENCADENADAS ================= */}
       {activeTab === 'workout' && (
         <div>
-          <header className="border-b border-neutral-800 pb-3.5 mb-4">
+          {!isSessionRunning && exercises.length === 0 ? (
+            <div className="py-12 flex flex-col items-center text-center space-y-6">
+              <div className="w-20 h-20 rounded-3xl bg-neutral-900 border border-neutral-800 flex items-center justify-center shadow-2xl">
+                <Dumbbell className="w-10 h-10 text-lime-400 animate-pulse" />
+              </div>
+
+              <div className="space-y-1.5 px-4">
+                <h2 className="text-lg font-extrabold text-white">No hay ninguna sesión activa</h2>
+                <p className="text-xs text-neutral-400 max-w-xs mx-auto">
+                  Selecciona una rutina para comenzar o inicia un entrenamiento libre.
+                </p>
+              </div>
+
+              <div className="w-full space-y-3 pt-4">
+                <button
+                  onClick={() => setActiveTab('routines')}
+                  className="w-full py-3.5 bg-lime-400 hover:bg-lime-300 text-neutral-950 font-extrabold text-sm rounded-2xl shadow-lg transition flex items-center justify-center gap-2"
+                >
+                  <ClipboardList className="w-4 h-4" /> Elegir Rutina para Entrenar
+                </button>
+
+                <button
+                  onClick={() => {
+                    setWorkoutName('Entrenamiento Libre')
+                    setExercises([])
+                    setSessionSeconds(0)
+                    setIsSessionRunning(true)
+                  }}
+                  className="w-full py-3 bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 hover:border-lime-400 text-white font-bold text-xs rounded-2xl transition flex items-center justify-center gap-2"
+                >
+                  <Plus className="w-4 h-4 text-lime-400" /> Comenzar Entrenamiento Libre
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <header className="border-b border-neutral-800 pb-3.5 mb-4">
             <div className="flex items-center justify-between gap-2">
               <div className="flex-1 min-w-0">
                 <span className="text-[11px] uppercase tracking-wider text-lime-400 font-bold block">
@@ -2426,13 +2433,7 @@ export default function ActiveWorkoutPage() {
                             <div className="col-span-2 flex flex-col justify-center">
                               <div className="flex items-center gap-1 font-bold text-xs text-neutral-300">
                                 {isChild && <CornerDownRight className="w-3 h-3 text-orange-400 shrink-0" />}
-                                <button
-                                  onClick={() => removeSetFromExercise(ex.id, set.id)}
-                                  className="hover:text-red-400 transition"
-                                  title="Tocar para borrar serie"
-                                >
-                                  {isChild ? `#${set.setNumber}A` : `#${set.setNumber}`}
-                                </button>
+                                <span className="font-bold text-xs text-neutral-300">{isChild ? `#${set.setNumber}A` : `#${set.setNumber}`}</span>
                                 {set.isPr && <Trophy className="w-3 h-3 text-yellow-400 inline" />}
                               </div>
                               <button
@@ -2509,16 +2510,24 @@ export default function ActiveWorkoutPage() {
                               />
                             </div>
 
-                            <div className="col-span-2 flex justify-end">
-                              <button
-                                onClick={() => toggleSetComplete(ex.id, set.id)}
-                                className={`w-9 h-9 rounded-xl flex items-center justify-center transition ${
-                                  set.isCompleted ? 'bg-lime-400 text-neutral-950 font-bold shadow-md' : 'bg-neutral-800 text-neutral-400'
-                                }`}
-                              >
-                                <Check className="w-5 h-5 stroke-[2.5]" />
-                              </button>
-                            </div>
+                            <div className="col-span-2 flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => removeSetFromExercise(ex.id, set.id, set.setNumber)}
+                              className="p-1.5 text-neutral-500 hover:text-red-400 transition"
+                              title="Eliminar serie"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => toggleSetComplete(ex.id, set.id)}
+                              className={`w-9 h-9 rounded-xl flex items-center justify-center transition ${
+                                set.isCompleted ? 'bg-lime-400 text-neutral-950 font-bold shadow-md' : 'bg-neutral-800 text-neutral-400'
+                              }`}
+                            >
+                              <Check className="w-5 h-5 stroke-[2.5]" />
+                            </button>
+                          </div>
                           </div>
 
                           {/* BOTONES PARA ENLAZAR DROP SET O REST PAUSE DIRECTO BAJO LA SERIE MADRE */}
@@ -2566,6 +2575,8 @@ export default function ActiveWorkoutPage() {
           </div>
         </div>
       )}
+    </div>
+  )}
 
       {/* ================= 4. HISTORIAL ================= */}
       {activeTab === 'history' && (
@@ -2681,6 +2692,21 @@ export default function ActiveWorkoutPage() {
                                   >
                                     <span className="col-span-3 text-left text-neutral-300 font-sans font-bold flex items-center gap-1">
                                       #{s.set_number || sIdx + 1}
+                                      {s.set_type === 'dropset' && (
+                                        <span className="text-[8px] uppercase font-mono px-1 py-0.5 rounded bg-orange-500/20 text-orange-400">
+                                          DROP
+                                        </span>
+                                      )}
+                                      {s.set_type === 'restpause' && (
+                                        <span className="text-[8px] uppercase font-mono px-1 py-0.5 rounded bg-blue-500/20 text-blue-400">
+                                          RP
+                                        </span>
+                                      )}
+                                      {s.set_type === 'failure' && (
+                                        <span className="text-[8px] uppercase font-mono px-1 py-0.5 rounded bg-red-500/20 text-red-400">
+                                          FALLO
+                                        </span>
+                                      )}
                                       {s.is_pr && <Trophy className="w-3 h-3 text-yellow-400 inline" />}
                                     </span>
                                     <span className="col-span-4 text-lime-400 font-bold">{s.weight_kg} kg</span>
@@ -3537,14 +3563,14 @@ export default function ActiveWorkoutPage() {
           <span className="text-[10px]">Inicio</span>
         </button>
 
-        <button onClick={() => setActiveTab('workout')} className={`flex flex-col items-center gap-1 ${activeTab === 'workout' ? 'text-lime-400 font-bold' : 'text-neutral-500'}`}>
-          <Dumbbell className="w-5 h-5" />
-          <span className="text-[10px]">Entrenar</span>
-        </button>
-
         <button onClick={() => setActiveTab('routines')} className={`flex flex-col items-center gap-1 ${activeTab === 'routines' ? 'text-lime-400 font-bold' : 'text-neutral-500'}`}>
           <ClipboardList className="w-5 h-5" />
           <span className="text-[10px]">Rutinas</span>
+        </button>
+
+        <button onClick={() => setActiveTab('workout')} className={`flex flex-col items-center gap-1 ${activeTab === 'workout' ? 'text-lime-400 font-bold' : 'text-neutral-500'}`}>
+          <Dumbbell className="w-5 h-5" />
+          <span className="text-[10px]">Entrenar</span>
         </button>
 
         <button onClick={() => setActiveTab('history')} className={`flex flex-col items-center gap-1 ${activeTab === 'history' ? 'text-lime-400 font-bold' : 'text-neutral-500'}`}>
