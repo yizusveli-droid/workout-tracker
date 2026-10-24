@@ -30,6 +30,8 @@ import {
   Activity,
   FolderPlus,
   LogOut,
+  LogIn,
+  User,
   Pencil,
   ClipboardList,
   Calculator,
@@ -293,6 +295,7 @@ export default function ActiveWorkoutPage() {
   const [authIsRegister, setAuthIsRegister] = useState(false)
   const [authError, setAuthError] = useState('')
   const [authSubmitting, setAuthSubmitting] = useState(false)
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
 
   const [activeTab, setActiveTab] = useState<'home' | 'workout' | 'routines' | 'history' | 'library'>('home')
   const [bodyWeightKg, setBodyWeightKg] = useState<number>(80)
@@ -529,6 +532,8 @@ export default function ActiveWorkoutPage() {
         })
         if (error) throw error
         setUser(data.user)
+        setIsAuthModalOpen(false)
+        setAuthPassword('')
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({
           email: authEmail,
@@ -536,6 +541,8 @@ export default function ActiveWorkoutPage() {
         })
         if (error) throw error
         setUser(data.user)
+        setIsAuthModalOpen(false)
+        setAuthPassword('')
       }
     } catch (err: any) {
       setAuthError(err.message || 'Error al autenticar')
@@ -599,6 +606,12 @@ export default function ActiveWorkoutPage() {
       loadHistory()
     }
   }, [user])
+
+  useEffect(() => {
+    if (activeTab === 'history' && user) {
+      loadHistory(true)
+    }
+  }, [activeTab, user])
 
   const toggleWorkoutDetails = async (workoutId: string) => {
     if (expandedWorkoutId === workoutId) {
@@ -1217,23 +1230,36 @@ export default function ActiveWorkoutPage() {
 
   const downloadRoutinePlan = () => {
     if (!currentProgram) return
-    let textContent = `=====================================\n`
-    textContent += `PLAN DE ENTRENAMIENTO: ${currentProgram.name.toUpperCase()}\n`
-    textContent += `${currentProgram.description || ''}\n`
-    textContent += `=====================================\n\n`
+    let textContent = `=====================================
+`
+    textContent += `PLAN DE ENTRENAMIENTO: ${currentProgram.name.toUpperCase()}
+`
+    textContent += `${currentProgram.description || ''}
+`
+    textContent += `=====================================
+
+`
 
     currentProgram.days.forEach((day) => {
-      textContent += `[${day.dayBadge}] ${day.title} (${day.estimatedDuration})\n`
-      if (day.subtitle) textContent += `Objetivo: ${day.subtitle}\n`
-      textContent += `-------------------------------------\n`
+      textContent += `[${day.dayBadge}] ${day.title} (${day.estimatedDuration})
+`
+      if (day.subtitle) textContent += `Objetivo: ${day.subtitle}
+`
+      textContent += `-------------------------------------
+`
       day.items.forEach((item, iIdx) => {
         const ex = catalog.find((c: CatalogExercise) => c.id === item.exerciseId)
-        textContent += `${iIdx + 1}. ${ex?.name || item.exerciseId}\n`
-        textContent += `   Series: ${item.setsCount} | Reps: ${item.defaultReps} | Peso: ${item.defaultWeight} kg\n`
-        if (item.supersetGroup) textContent += `   SuperSerie: Grupo ${item.supersetGroup}\n`
-        if (item.note) textContent += `   Nota: ${item.note}\n`
+        textContent += `${iIdx + 1}. ${ex?.name || item.exerciseId}
+`
+        textContent += `   Series: ${item.setsCount} | Reps: ${item.defaultReps} | Peso: ${item.defaultWeight} kg
+`
+        if (item.supersetGroup) textContent += `   SuperSerie: Grupo ${item.supersetGroup}
+`
+        if (item.note) textContent += `   Nota: ${item.note}
+`
       })
-      textContent += `\n`
+      textContent += `
+`
     })
 
     const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' })
@@ -1658,7 +1684,7 @@ export default function ActiveWorkoutPage() {
     try {
       const supabase = createClient()
       if (!supabase || !user) {
-        alert('Debes iniciar sesión para guardar tus datos.')
+        setIsAuthModalOpen(true)
         setIsSaving(false)
         return
       }
@@ -1731,13 +1757,22 @@ export default function ActiveWorkoutPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <button
-                onClick={handleLogout}
-                className="p-2 bg-neutral-900 border border-neutral-800 rounded-xl text-neutral-400 hover:text-red-400 transition"
-                title="Cerrar sesión"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
+              {user ? (
+                <button
+                  onClick={handleLogout}
+                  className="p-2 bg-neutral-900 border border-neutral-800 rounded-xl text-neutral-400 hover:text-red-400 transition"
+                  title={`Cerrar sesión (${user.email || ''})`}
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              ) : (
+                <button
+                  onClick={() => setIsAuthModalOpen(true)}
+                  className="px-2.5 py-1.5 bg-lime-400 hover:bg-lime-300 text-neutral-950 rounded-xl text-xs font-extrabold flex items-center gap-1 shadow-md transition"
+                >
+                  <LogIn className="w-3.5 h-3.5" /> Entrar
+                </button>
+              )}
 
               <div className="bg-neutral-900 border border-neutral-800 rounded-2xl px-3 py-1 text-right">
                 <span className="text-[9px] uppercase font-bold text-neutral-400 block">Peso</span>
@@ -2727,9 +2762,20 @@ export default function ActiveWorkoutPage() {
               })}
             </div>
           ) : (
-            <div className="text-center py-20 bg-neutral-900/50 border border-neutral-800 rounded-3xl p-6">
-              <History className="w-10 h-10 text-neutral-600 mx-auto mb-3" />
+            <div className="text-center py-16 bg-neutral-900/50 border border-neutral-800 rounded-3xl p-6 space-y-3">
+              <History className="w-10 h-10 text-neutral-600 mx-auto mb-1" />
               <h3 className="text-sm font-bold text-neutral-300">No hay sesiones aún</h3>
+              {!user && (
+                <div className="pt-2">
+                  <p className="text-xs text-neutral-400 mb-3">Inicia sesión con tu cuenta para ver tu historial sincronizado de Supabase.</p>
+                  <button
+                    onClick={() => setIsAuthModalOpen(true)}
+                    className="px-4 py-2 bg-lime-400 hover:bg-lime-300 text-neutral-950 font-extrabold text-xs rounded-xl shadow-md transition inline-flex items-center gap-1.5"
+                  >
+                    <LogIn className="w-3.5 h-3.5" /> Iniciar Sesión
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -3631,6 +3677,86 @@ export default function ActiveWorkoutPage() {
                 Cerrar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* ================= MODAL DE AUTENTICACIÓN / INICIAR SESIÓN ================= */}
+      {isAuthModalOpen && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-3xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-lime-400/10 text-lime-400 flex items-center justify-center">
+                  <User className="w-4 h-4" />
+                </div>
+                <h3 className="text-sm font-extrabold text-white">
+                  {authIsRegister ? 'Crear Cuenta' : 'Iniciar Sesión'}
+                </h3>
+              </div>
+              <button
+                onClick={() => { setIsAuthModalOpen(false); setAuthError('') }}
+                className="p-1 text-neutral-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex bg-neutral-950 p-1 rounded-xl border border-neutral-800 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => { setAuthIsRegister(false); setAuthError('') }}
+                className={`flex-1 py-1.5 rounded-lg transition ${!authIsRegister ? 'bg-lime-400 text-neutral-950 shadow-md font-extrabold' : 'text-neutral-400 hover:text-white'}`}
+              >
+                Ingresar
+              </button>
+              <button
+                type="button"
+                onClick={() => { setAuthIsRegister(true); setAuthError('') }}
+                className={`flex-1 py-1.5 rounded-lg transition ${authIsRegister ? 'bg-lime-400 text-neutral-950 shadow-md font-extrabold' : 'text-neutral-400 hover:text-white'}`}
+              >
+                Registrarse
+              </button>
+            </div>
+
+            <form onSubmit={handleAuthSubmit} className="space-y-3">
+              <div>
+                <label className="text-[11px] font-bold text-neutral-400 block mb-1">Correo Electrónico</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="tu@email.com"
+                  value={authEmail}
+                  onChange={(e) => setAuthEmail(e.target.value)}
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-lime-400 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-neutral-400 block mb-1">Contraseña</label>
+                <input
+                  type="password"
+                  required
+                  placeholder="••••••••"
+                  value={authPassword}
+                  onChange={(e) => setAuthPassword(e.target.value)}
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-lime-400 font-mono"
+                />
+              </div>
+
+              {authError && (
+                <div className="p-2 bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl text-xs font-semibold">
+                  {authError}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={authSubmitting}
+                className="w-full py-2.5 bg-lime-400 hover:bg-lime-300 disabled:opacity-50 text-neutral-950 font-extrabold text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-2 mt-2"
+              >
+                {authSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : (authIsRegister ? 'Registrarme e Ingresar' : 'Entrar a mi Cuenta')}
+              </button>
+            </form>
           </div>
         </div>
       )}
