@@ -641,11 +641,11 @@ export default function ActiveWorkoutPage() {
     }
   }, [user])
 
-  useEffect(() => {
-    if (activeTab === 'history' && user) {
-      loadHistory(true)
-    }
-  }, [activeTab, user])
+ useEffect(() => {
+  if (user?.id) {
+    loadHistory()
+  }
+}, [user?.id])
 
   const toggleWorkoutDetails = async (workoutId: string) => {
     if (expandedWorkoutId === workoutId) {
