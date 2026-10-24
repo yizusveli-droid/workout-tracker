@@ -288,7 +288,17 @@ const DEFAULT_5_DAY_PROGRAM: WorkoutProgram = {
 }
 
 export default function ActiveWorkoutPage() {
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<any>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('workout_tracker_auth_user')
+        return cached ? JSON.parse(cached) : null
+      } catch (_) {
+        return null
+      }
+    }
+    return null
+  })
   const [authLoading, setAuthLoading] = useState(true)
   const [authEmail, setAuthEmail] = useState('')
   const [authPassword, setAuthPassword] = useState('')
@@ -500,12 +510,22 @@ export default function ActiveWorkoutPage() {
     }
 
     supabase.auth.getUser().then(({ data }) => {
-      setUser(data?.user ?? null)
+      const activeUser = data?.user ?? null
+      setUser(activeUser)
       setAuthLoading(false)
+      if (activeUser) {
+        try { localStorage.setItem('workout_tracker_auth_user', JSON.stringify(activeUser)) } catch (_) {}
+      }
     })
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
+      const activeUser = session?.user ?? null
+      setUser(activeUser)
+      if (activeUser) {
+        try { localStorage.setItem('workout_tracker_auth_user', JSON.stringify(activeUser)) } catch (_) {}
+      } else if (_event === 'SIGNED_OUT') {
+        try { localStorage.removeItem('workout_tracker_auth_user') } catch (_) {}
+      }
     })
 
     return () => {
@@ -532,6 +552,9 @@ export default function ActiveWorkoutPage() {
         })
         if (error) throw error
         setUser(data.user)
+        if (data.user) {
+          try { localStorage.setItem('workout_tracker_auth_user', JSON.stringify(data.user)) } catch (_) {}
+        }
         setIsAuthModalOpen(false)
         setAuthPassword('')
       } else {
@@ -541,6 +564,9 @@ export default function ActiveWorkoutPage() {
         })
         if (error) throw error
         setUser(data.user)
+        if (data.user) {
+          try { localStorage.setItem('workout_tracker_auth_user', JSON.stringify(data.user)) } catch (_) {}
+        }
         setIsAuthModalOpen(false)
         setAuthPassword('')
       }
@@ -553,6 +579,7 @@ export default function ActiveWorkoutPage() {
 
   const handleLogout = async () => {
     const supabase = createClient()
+    try { localStorage.removeItem('workout_tracker_auth_user') } catch (_) {}
     if (supabase) {
       await supabase.auth.signOut()
       setUser(null)
@@ -641,11 +668,11 @@ export default function ActiveWorkoutPage() {
     }
   }, [user])
 
- useEffect(() => {
-  if (user?.id) {
-    loadHistory()
-  }
-}, [user?.id])
+  useEffect(() => {
+    if (activeTab === 'history' && user) {
+      loadHistory(true)
+    }
+  }, [activeTab, user])
 
   const toggleWorkoutDetails = async (workoutId: string) => {
     if (expandedWorkoutId === workoutId) {
@@ -1717,7 +1744,17 @@ export default function ActiveWorkoutPage() {
     setSaveSuccess(false)
     try {
       const supabase = createClient()
-      if (!supabase || !user) {
+      let currentUser = user
+      if (!currentUser && supabase) {
+        const { data: authData } = await supabase.auth.getUser()
+        if (authData?.user) {
+          currentUser = authData.user
+          setUser(authData.user)
+          try { localStorage.setItem('workout_tracker_auth_user', JSON.stringify(authData.user)) } catch (_) {}
+        }
+      }
+
+      if (!supabase || !currentUser) {
         setIsAuthModalOpen(true)
         setIsSaving(false)
         return
@@ -1726,7 +1763,7 @@ export default function ActiveWorkoutPage() {
       const { data: workout, error: workoutError } = await supabase
         .from('workouts')
         .insert({
-          user_id: user.id,
+          user_id: currentUser.id,
           name: workoutName.trim() || 'Sesión de Entrenamiento',
           total_volume_kg: workoutStats.totalVolume,
           completed_at: new Date().toISOString(),
