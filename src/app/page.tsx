@@ -560,21 +560,40 @@ export default function ActiveWorkoutPage() {
   }
 
   const loadHistory = async (force = false) => {
-    if (!user) return
+    if (!user) {
+      setIsLoadingHistory(false)
+      return
+    }
     if (historyLoadedRef.current && !force) return
     setIsLoadingHistory(true)
     try {
       const supabase = createClient()
-      if (!supabase) return
+      if (!supabase) {
+        setIsLoadingHistory(false)
+        return
+      }
+
+      // 1. Vincular entrenamientos huérfanos anteriores (guardados antes de loguearte) a tu cuenta
+      try {
+        await supabase
+          .from('workouts')
+          .update({ user_id: user.id })
+          .is('user_id', null)
+      } catch (e) {
+        console.warn('Aviso vinculando huérfanos:', e)
+      }
+
+      // 2. Traer entrenamientos asociados a tu user.id o huérfanos
       const { data, error } = await supabase
         .from('workouts')
         .select('*')
-        .eq('user_id', user.id)
+        .or(`user_id.eq.${user.id},user_id.is.null`)
         .order('completed_at', { ascending: false })
         .limit(50)
 
-      if (data && !error) {
+      if (data && !error && data.length > 0) {
         setHistoryList(data)
+        localStorage.setItem('user_workouts_history', JSON.stringify(data))
         historyLoadedRef.current = true
 
         const workoutIds = data.map((w: any) => w.id)
@@ -593,9 +612,24 @@ export default function ActiveWorkoutPage() {
             setWorkoutSetsDetails((prev) => ({ ...prev, ...mappedSets }))
           }
         }
+      } else {
+        // Fallback a almacenamiento local si Supabase viene vacío o tarda
+        const localSaved = localStorage.getItem('user_workouts_history')
+        if (localSaved) {
+          const parsed = JSON.parse(localSaved)
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setHistoryList(parsed)
+          }
+        }
       }
     } catch (err) {
       console.warn('Aviso cargando historial:', err)
+      const localSaved = localStorage.getItem('user_workouts_history')
+      if (localSaved) {
+        try {
+          setHistoryList(JSON.parse(localSaved))
+        } catch (_) {}
+      }
     } finally {
       setIsLoadingHistory(false)
     }
@@ -1723,10 +1757,21 @@ export default function ActiveWorkoutPage() {
         )
 
         if (setsToInsert.length > 0) {
-          await supabase.from('workout_sets').insert(setsToInsert)
+          const { error: setsError } = await supabase.from('workout_sets').insert(setsToInsert)
+          if (setsError) {
+            console.warn('Reintentando inserción sin set_type por esquema previo:', setsError.message)
+            const fallbackSets = setsToInsert.map(({ set_type, ...rest }) => rest)
+            await supabase.from('workout_sets').insert(fallbackSets)
+          }
           localStorage.setItem(`workout_sets_${workout.id}`, JSON.stringify(setsToInsert))
           setWorkoutSetsDetails((prev) => ({ ...prev, [workout.id]: setsToInsert }))
         }
+
+        // Respaldo inmediato en historial local
+        const currentLocal = JSON.parse(localStorage.getItem('user_workouts_history') || '[]')
+        const updatedLocal = [workout, ...currentLocal.filter((w: any) => w.id !== workout.id)]
+        localStorage.setItem('user_workouts_history', JSON.stringify(updatedLocal))
+        setHistoryList(updatedLocal)
       }
 
       localStorage.removeItem('active_workout_backup')
