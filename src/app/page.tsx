@@ -600,21 +600,11 @@ export default function ActiveWorkoutPage() {
         return
       }
 
-      // 1. Vincular entrenamientos huérfanos anteriores (guardados antes de loguearte) a tu cuenta
-      try {
-        await supabase
-          .from('workouts')
-          .update({ user_id: user.id })
-          .is('user_id', null)
-      } catch (e) {
-        console.warn('Aviso vinculando huérfanos:', e)
-      }
-
-      // 2. Traer entrenamientos asociados a tu user.id o huérfanos
+      // Consultar los entrenamientos de tu cuenta
       const { data, error } = await supabase
         .from('workouts')
         .select('*')
-        .or(`user_id.eq.${user.id},user_id.is.null`)
+        .eq('user_id', user.id)
         .order('completed_at', { ascending: false })
         .limit(50)
 
@@ -663,16 +653,10 @@ export default function ActiveWorkoutPage() {
   }
 
   useEffect(() => {
-    if (user) {
+    if (user?.id) {
       loadHistory()
     }
-  }, [user])
-
-  useEffect(() => {
-    if (activeTab === 'history' && user) {
-      loadHistory(true)
-    }
-  }, [activeTab, user])
+  }, [user?.id])
 
   const toggleWorkoutDetails = async (workoutId: string) => {
     if (expandedWorkoutId === workoutId) {
@@ -2703,7 +2687,7 @@ export default function ActiveWorkoutPage() {
             <h1 className="text-xl font-extrabold text-neutral-100">Historial de Sesiones</h1>
           </header>
 
-          {isLoadingHistory ? (
+          {isLoadingHistory && historyList.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-neutral-500 text-sm">
               <Loader2 className="w-6 h-6 animate-spin text-lime-400 mb-2" />
               Cargando tus registros...
